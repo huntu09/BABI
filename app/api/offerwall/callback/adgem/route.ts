@@ -316,8 +316,13 @@ export async function POST(request: NextRequest) {
     if (completionStatus === "completed") {
       const currentBalance = Number(userProfile.balance || 0)
       const currentTotalEarned = Number(userProfile.total_earned || 0)
-      const newBalance = currentBalance + rewardAmount
-      const newTotalEarned = currentTotalEarned + rewardAmount
+
+      // Apply 30% profit margin - user gets 70% of what provider pays
+      const userReward = rewardAmount * 0.7 // User gets 70%, you keep 30%
+
+      // Update balance with the reduced amount
+      const newBalance = currentBalance + userReward
+      const newTotalEarned = currentTotalEarned + userReward
 
       const { error: balanceError } = await supabase
         .from("profiles")
@@ -336,7 +341,10 @@ export async function POST(request: NextRequest) {
       // Handle referral commission
       await handleReferralCommission(user_id, rewardAmount)
 
-      console.log(`✅ AdGem: Credited $${rewardAmount} to user ${userProfile.username} (${user_id})`)
+      // Log successful processing
+      console.log(
+        `🎉 AdGem: Credited $${userReward} to ${userProfile.username} (Original: $${rewardAmount}, Profit: $${rewardAmount - userReward})`,
+      )
     }
 
     // Log successful processing

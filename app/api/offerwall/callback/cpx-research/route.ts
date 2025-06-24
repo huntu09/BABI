@@ -193,8 +193,13 @@ async function handleCompletedSurvey(callbackData: any, clientIP: string) {
   // Update balance
   const currentBalance = Number.parseFloat(profile.balance?.toString() || "0")
   const currentTotalEarned = Number.parseFloat(profile.total_earned?.toString() || "0")
-  const newBalance = currentBalance + rewardAmount
-  const newTotalEarned = currentTotalEarned + rewardAmount
+
+  // Apply 30% profit margin - user gets 70% of what provider pays
+  const userReward = rewardAmount * 0.7
+
+  // Update balance calculation
+  const newBalance = currentBalance + userReward
+  const newTotalEarned = currentTotalEarned + userReward
 
   const { error: updateError } = await supabase
     .from("profiles")
@@ -214,7 +219,7 @@ async function handleCompletedSurvey(callbackData: any, clientIP: string) {
   const { error: transactionError } = await supabase.from("transactions").insert({
     user_id: profile.id,
     type: "offerwall_completion",
-    amount: rewardAmount,
+    amount: userReward, // Use userReward instead of rewardAmount
     description: `CPX Research Survey - Offer ${callbackData.offer_id || "Unknown"}`,
     reference_id: `cpx_${callbackData.trans_id}`,
     metadata: {
@@ -222,7 +227,9 @@ async function handleCompletedSurvey(callbackData: any, clientIP: string) {
       offer_id: callbackData.offer_id,
       ip_address: callbackData.ip_click,
       client_ip: clientIP,
-      original_amount: callbackData.amount_usd,
+      original_amount: rewardAmount, // Store original amount
+      user_amount: userReward, // Store what user actually got
+      profit_margin: rewardAmount - userReward, // Store your profit
       local_amount: callbackData.amount_local,
       sub_id: callbackData.sub_id,
       sub_id_2: callbackData.sub_id_2,
@@ -239,7 +246,9 @@ async function handleCompletedSurvey(callbackData: any, clientIP: string) {
     console.log("✅ Transaction recorded successfully")
   }
 
-  console.log(`🎉 Completed! Credited $${rewardAmount} to ${profile.username}`)
+  console.log(
+    `🎉 Completed! Credited $${userReward} to ${profile.username} (Original: $${rewardAmount}, Profit: $${rewardAmount - userReward})`,
+  )
   return new NextResponse("1", { status: 200 })
 }
 

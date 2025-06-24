@@ -20,12 +20,12 @@ export function formatPoints(points: number): string {
 
 // Convert points to dollars
 export function pointsToDollars(points: number): number {
-  return points / 100
+  return points / 200 // Changed from 100 to 200 (50% of face value = ~30% profit)
 }
 
 // Convert dollars to points
 export function dollarsToPoints(dollars: number): number {
-  return dollars * 100
+  return dollars * 200 // Changed from 100 to 200
 }
 
 // Format date

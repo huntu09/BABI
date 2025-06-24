@@ -12,13 +12,13 @@ export const APP_CONFIG = {
 } as const
 
 export const POINTS_CONFIG = {
-  pointsPerDollar: 100,
-  minimumWithdrawal: 200, // $2.00
-  maximumWithdrawal: 100000, // $1000.00
-  dailyWithdrawalLimit: 50000, // $500.00
-  monthlyWithdrawalLimit: 500000, // $5000.00
+  pointsPerDollar: 200, // Changed from 100 to 200
+  minimumWithdrawal: 400, // Updated: $2.00 (was 200)
+  maximumWithdrawal: 200000, // Updated: $1000.00 (was 100000)
+  dailyWithdrawalLimit: 100000, // Updated: $500.00 (was 50000)
+  monthlyWithdrawalLimit: 1000000, // Updated: $5000.00 (was 500000)
   referralCommission: 0.1, // 10%
-  dailyLoginBonus: 5, // 🔥 UPDATED: 5 points = $0.05 (was 25)
+  dailyLoginBonus: 10, // Updated: 10 points = $0.05 (was 5)
 } as const
 
 export const SECURITY_CONFIG = {
