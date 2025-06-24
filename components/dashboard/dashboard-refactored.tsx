@@ -5,7 +5,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "@/hooks/use-toast"
 import ProfilePage from "../profile/profile-page"
 import DashboardHeader from "./dashboard-header"
-import EarnTab from "./earn-tab"
+import RealOffersTab from "./real-offers-tab"
 import MyOffersTab from "./my-offers-tab" // Default import
 import CashoutTab from "./cashout-tab"
 import RewardsTab from "./rewards-tab"
@@ -38,8 +38,8 @@ export default function DashboardRefactored({ user, profile }: DashboardRefactor
   const [currentProfile, setCurrentProfile] = useState(profile)
   const supabase = createClientComponentClient()
 
-  // Convert balance to points for display (assuming 1 point = $0.01)
-  const points = Math.round((currentProfile?.balance || 0) * 100)
+  // Convert balance to points for display (assuming 1 point = $0.005)
+  const points = Math.round((currentProfile?.balance || 0) * 200)
 
   const handleOfferClick = (offer: any) => {
     toast({
@@ -126,7 +126,7 @@ export default function DashboardRefactored({ user, profile }: DashboardRefactor
 
       {/* Tab Content */}
       <div className="flex-1">
-        {activeTab === "earn" && <EarnTab onOfferClick={handleOfferClick} />}
+        {activeTab === "earn" && <RealOffersTab userId={user.id} />}
 
         {activeTab === "offers" && <MyOffersTab user={user} />}
 

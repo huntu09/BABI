@@ -32,37 +32,163 @@ export class HybridTaskManager {
   // Get personalized task recommendations
   async getTaskRecommendations(userId: string, options: TaskRecommendationOptions = {}): Promise<HybridTask[]> {
     try {
-      const { data, error } = await this.supabase.rpc("get_hybrid_task_recommendations", {
-        p_user_id: userId,
-        p_limit: options.limit || 20,
-      })
+      const limit = options.limit || 20
+      let allTasks: HybridTask[] = []
 
-      if (error) throw error
+      // Get sample tasks from tasks table
+      if (options.source === "all" || options.source === "sample" || !options.source) {
+        const { data: sampleTasks, error: sampleError } = await this.supabase
+          .from("tasks")
+          .select(`
+            id,
+            title,
+            description,
+            reward_amount,
+            task_type,
+            provider,
+            difficulty,
+            estimated_time,
+            url,
+            external_id,
+            provider_config,
+            task_source
+          `)
+          .eq("is_active", true)
+          .order("reward_amount", { ascending: false })
+          .limit(limit)
 
-      // Apply additional filters if specified
-      let filteredTasks = data || []
+        if (sampleError) throw sampleError
 
-      if (options.category) {
-        filteredTasks = filteredTasks.filter((task: HybridTask) => task.task_type === options.category)
+        // Check which tasks user has completed
+        const { data: completedTasks } = await this.supabase
+          .from("user_tasks")
+          .select("task_id")
+          .eq("user_id", userId)
+          .eq("status", "completed")
+
+        const completedTaskIds = new Set(completedTasks?.map((t) => t.task_id) || [])
+
+        const formattedSampleTasks: HybridTask[] = (sampleTasks || []).map((task) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description || "",
+          reward_amount: Number(task.reward_amount),
+          task_type: task.task_type,
+          task_source: "sample" as const,
+          provider: task.provider || "Sample",
+          difficulty: task.difficulty || "easy",
+          estimated_time: task.estimated_time || "10 minutes",
+          is_completed: completedTaskIds.has(task.id),
+          recommendation_score: this.calculateRecommendationScore(task, userId),
+          external_offer_id: task.external_id,
+          provider_config: task.provider_config,
+          url: task.url,
+        }))
+
+        allTasks = [...allTasks, ...formattedSampleTasks]
       }
 
-      if (options.source && options.source !== "all") {
-        filteredTasks = filteredTasks.filter((task: HybridTask) => task.task_source === options.source)
+      // Get real offerwall completions (for display purposes)
+      if (options.source === "all" || options.source === "offerwall" || !options.source) {
+        // For now, we'll create mock offerwall tasks since we don't have a live offerwall API
+        // In production, this would fetch from CPX Research, AdGem, etc.
+        const mockOfferwallTasks: HybridTask[] = [
+          {
+            id: "cpx-survey-1",
+            title: "Complete Consumer Survey",
+            description: "Share your opinion about shopping habits",
+            reward_amount: 0.75,
+            task_type: "survey",
+            task_source: "offerwall",
+            provider: "CPX Research",
+            difficulty: "easy",
+            estimated_time: "5 minutes",
+            is_completed: false,
+            recommendation_score: 85,
+            url: "https://cpx-research.com/survey/123",
+          },
+          {
+            id: "adgem-game-1",
+            title: "Play Mobile Game",
+            description: "Download and reach level 10",
+            reward_amount: 1.25,
+            task_type: "app_install",
+            task_source: "offerwall",
+            provider: "AdGem",
+            difficulty: "medium",
+            estimated_time: "30 minutes",
+            is_completed: false,
+            recommendation_score: 90,
+            url: "https://adgem.com/offer/456",
+          },
+          {
+            id: "lootably-video-1",
+            title: "Watch Video Ads",
+            description: "Watch 5 short video advertisements",
+            reward_amount: 0.25,
+            task_type: "video",
+            task_source: "offerwall",
+            provider: "Lootably",
+            difficulty: "easy",
+            estimated_time: "3 minutes",
+            is_completed: false,
+            recommendation_score: 70,
+            url: "https://lootably.com/videos/789",
+          },
+        ]
+
+        allTasks = [...allTasks, ...mockOfferwallTasks]
+      }
+
+      // Apply filters
+      let filteredTasks = allTasks
+
+      if (options.category) {
+        filteredTasks = filteredTasks.filter((task) => task.task_type === options.category)
+      }
+
+      if (options.difficulty) {
+        filteredTasks = filteredTasks.filter((task) => task.difficulty === options.difficulty)
       }
 
       if (options.minPayout) {
-        filteredTasks = filteredTasks.filter((task: HybridTask) => task.reward_amount >= options.minPayout!)
+        filteredTasks = filteredTasks.filter((task) => task.reward_amount >= options.minPayout!)
       }
 
       if (options.maxPayout) {
-        filteredTasks = filteredTasks.filter((task: HybridTask) => task.reward_amount <= options.maxPayout!)
+        filteredTasks = filteredTasks.filter((task) => task.reward_amount <= options.maxPayout!)
       }
 
-      return filteredTasks
+      // Sort by recommendation score
+      filteredTasks.sort((a, b) => b.recommendation_score - a.recommendation_score)
+
+      return filteredTasks.slice(0, limit)
     } catch (error) {
       console.error("Error getting task recommendations:", error)
       return []
     }
+  }
+
+  // Calculate recommendation score based on user preferences and task attributes
+  private calculateRecommendationScore(task: any, userId: string): number {
+    let score = 50 // Base score
+
+    // Higher reward = higher score
+    score += Math.min(task.reward_amount * 20, 30)
+
+    // Prefer easier tasks for new users
+    if (task.difficulty === "easy") score += 10
+    if (task.difficulty === "medium") score += 5
+
+    // Boost popular task types
+    if (task.task_type === "survey") score += 15
+    if (task.task_type === "video") score += 10
+    if (task.task_type === "app_install") score += 20
+
+    // Random factor for variety
+    score += Math.random() * 10
+
+    return Math.min(Math.max(score, 0), 100)
   }
 
   // Complete a sample task
@@ -145,17 +271,9 @@ export class HybridTaskManager {
     prefersRealOffers?: boolean
   }): Promise<boolean> {
     try {
-      const { error } = await this.supabase.from("user_task_preferences").upsert({
-        user_id: (await this.supabase.auth.getUser()).data.user?.id,
-        preferred_categories: preferences.preferredCategories,
-        preferred_difficulty: preferences.preferredDifficulty,
-        min_payout: preferences.minPayout,
-        max_payout: preferences.maxPayout,
-        prefers_real_offers: preferences.prefersRealOffers,
-        updated_at: new Date().toISOString(),
-      })
-
-      return !error
+      // For now, we'll store preferences in localStorage since we don't have a preferences table
+      localStorage.setItem("taskPreferences", JSON.stringify(preferences))
+      return true
     } catch (error) {
       console.error("Error updating task preferences:", error)
       return false
@@ -174,14 +292,14 @@ export class HybridTaskManager {
       // Get sample task completions
       const { data: sampleStats } = await this.supabase
         .from("user_tasks")
-        .select("points_earned")
+        .select("reward_earned")
         .eq("user_id", userId)
         .eq("status", "completed")
 
       // Get real offer completions
       const { data: offerwallStats } = await this.supabase
         .from("real_offer_completions")
-        .select("points_earned")
+        .select("points_earned, payout_usd")
         .eq("user_id", userId)
         .eq("status", "completed")
 
@@ -189,8 +307,8 @@ export class HybridTaskManager {
       const offerwallCompleted = offerwallStats?.length || 0
       const totalCompleted = sampleCompleted + offerwallCompleted
 
-      const sampleEarned = sampleStats?.reduce((sum, task) => sum + (task.points_earned || 0), 0) || 0
-      const offerwallEarned = offerwallStats?.reduce((sum, task) => sum + (task.points_earned || 0), 0) || 0
+      const sampleEarned = sampleStats?.reduce((sum, task) => sum + (Number(task.reward_earned) || 0), 0) || 0
+      const offerwallEarned = offerwallStats?.reduce((sum, task) => sum + (Number(task.payout_usd) || 0), 0) || 0
       const totalEarned = sampleEarned + offerwallEarned
 
       return {
@@ -215,10 +333,13 @@ export class HybridTaskManager {
   // Get available offerwall providers
   async getOfferwallProviders(): Promise<any[]> {
     try {
-      const { data, error } = await this.supabase.from("offerwall_providers").select("*").eq("is_active", true)
-
-      if (error) throw error
-      return data || []
+      // Return mock providers for now
+      return [
+        { id: "cpx_research", name: "CPX Research", is_active: true },
+        { id: "adgem", name: "AdGem", is_active: true },
+        { id: "lootably", name: "Lootably", is_active: true },
+        { id: "offertoro", name: "OfferToro", is_active: true },
+      ]
     } catch (error) {
       console.error("Error getting offerwall providers:", error)
       return []

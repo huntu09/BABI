@@ -273,7 +273,7 @@ export default function ProfilePage({ user, profile, onBack }: ProfilePageProps)
                 <div className="text-green-100 text-sm">Available Balance</div>
               </div>
               <div className="text-right">
-                <div className="text-white font-medium">{Math.round(safeProfile.balance * 100)} points</div>
+                <div className="text-white font-medium">{Math.round(safeProfile.balance * 200)} points</div>
                 <div className="text-green-100 text-sm">Total earned: ${safeProfile.total_earned.toFixed(2)}</div>
               </div>
             </div>
