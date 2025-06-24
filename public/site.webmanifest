@@ -1,0 +1,27 @@
+{
+  "name": "Dropiyo - Get Paid To Complete Tasks",
+  "short_name": "Dropiyo",
+  "description": "Earn money online by completing simple tasks, surveys, and offers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/android-chrome-512x512.png", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["finance", "productivity", "business"],
+  "lang": "en",
+  "dir": "ltr",
+  "orientation": "portrait-primary"
+}
