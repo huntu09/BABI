@@ -4,44 +4,12 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Progress } from "@/components/ui/progress"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import {
-  Users,
-  DollarSign,
-  TrendingUp,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Ban,
-  UserCheck,
-  RefreshCw,
-  Activity,
-  Search,
-  Download,
-  Upload,
-  Edit,
-  Plus,
-  Clock,
-  Target,
-  Menu,
-  X,
-  Settings,
-  BarChart3,
-  Shield,
-  Award,
-  FileText,
-} from "lucide-react"
+import { Users, DollarSign, RefreshCw, Download, Clock, Menu, X, Shield, Award, FileText, Settings } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 interface AdminStats {
   totalUsers: number
@@ -112,9 +80,240 @@ export default function AdminDashboard() {
     totalBadges: 0,
     badgesEarned: 0,
   })
+  const [showTaskCreationModal, setShowTaskCreationModal] = useState(false)
+  const [editingTask, setEditingTask] = useState(null)
 
   const supabase = createClientComponentClient()
   const [activeTab, setActiveTab] = useState("overview")
+
+  // Tambahkan fungsi yang hilang di bagian atas component, setelah state declarations:
+
+  const createTask = async (taskData: any) => {
+    try {
+      setActionLoading(true)
+      const response = await fetch("/api/admin/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskData),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: "Task created successfully",
+      })
+
+      fetchData() // Refresh data
+      setShowTaskModal(false)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const updateTask = async (taskId: string, updateData: any) => {
+    try {
+      setActionLoading(true)
+      const response = await fetch("/api/admin/tasks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId, ...updateData }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: "Task updated successfully",
+      })
+
+      fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const toggleTaskActive = async (taskId: string, isActive: boolean) => {
+    try {
+      const response = await fetch("/api/admin/tasks", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId,
+          action: "toggle_active",
+          is_active: isActive,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: result.message,
+      })
+
+      fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const createBadge = async (badgeData: any) => {
+    try {
+      setActionLoading(true)
+      const response = await fetch("/api/admin/badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(badgeData),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: "Badge created successfully",
+      })
+
+      fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const toggleBadgeActive = async (badgeId: string, isActive: boolean) => {
+    try {
+      const response = await fetch("/api/admin/badges", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          badgeId,
+          action: "toggle_active",
+          is_active: isActive,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: result.message,
+      })
+
+      fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleFraudAction = async (fraudId: string, action: string, userId?: string, reason?: string) => {
+    try {
+      setActionLoading(true)
+      const response = await fetch("/api/admin/fraud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, fraudId, userId, reason }),
+      })
+
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error)
+
+      toast({
+        title: "Success",
+        description: result.message,
+      })
+
+      fetchData()
+      setShowFraudModal(false)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const exportDataFunction = async (type: string, format = "csv") => {
+    try {
+      const response = await fetch(`/api/admin/export?type=${type}&format=${format}`)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error)
+      }
+
+      if (format === "csv") {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${type}_export_${new Date().toISOString().split("T")[0]}.csv`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } else {
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${type}_export_${new Date().toISOString().split("T")[0]}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      }
+
+      toast({
+        title: "Success",
+        description: `${type} data exported successfully`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -123,12 +322,39 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      console.log("🔍 DEBUG: Starting fetchData...")
+
+      // Debug auth user
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+      console.log("🔍 DEBUG: Auth user:", user)
+      console.log("🔍 DEBUG: Auth error:", authError)
+
+      // Debug withdrawals query
+      console.log("🔍 DEBUG: Fetching withdrawals...")
+      const withdrawalsResult = await supabase
+        .from("withdrawals")
+        .select(`
+    *,
+    profiles:user_id (
+      email,
+      username,
+      balance
+    )
+  `)
+        .order("created_at", { ascending: false })
+
+      console.log("🔍 DEBUG: Withdrawals result:", withdrawalsResult)
+      console.log("🔍 DEBUG: Withdrawals data:", withdrawalsResult.data)
+      console.log("🔍 DEBUG: Withdrawals error:", withdrawalsResult.error)
       console.log("Fetching comprehensive admin data...")
 
       // Fetch all data in parallel
       const [
         usersResult,
-        withdrawalsResult,
+        sResult,
         tasksResult,
         transactionsResult,
         fraudLogsResult,
@@ -140,7 +366,14 @@ export default function AdminDashboard() {
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase
           .from("withdrawals")
-          .select("*, profiles!inner(email, username, balance)")
+          .select(`
+    *,
+    profiles:user_id (
+      email,
+      username,
+      balance
+    )
+  `)
           .order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").order("created_at", { ascending: false }),
         supabase
@@ -167,8 +400,8 @@ export default function AdminDashboard() {
       if (usersResult.status === "fulfilled" && !usersResult.value.error) {
         setUsers(usersResult.value.data || [])
       }
-      if (withdrawalsResult.status === "fulfilled" && !withdrawalsResult.value.error) {
-        setWithdrawals(withdrawalsResult.value.data || [])
+      if (sResult.status === "fulfilled" && !sResult.value.error) {
+        setWithdrawals(sResult.value.data || [])
       }
       if (tasksResult.status === "fulfilled" && !tasksResult.value.error) {
         setTasks(tasksResult.value.data || [])
@@ -199,7 +432,7 @@ export default function AdminDashboard() {
       // Calculate enhanced stats
       calculateEnhancedStats(
         usersResult.status === "fulfilled" ? usersResult.value.data : [],
-        withdrawalsResult.status === "fulfilled" ? withdrawalsResult.value.data : [],
+        sResult.status === "fulfilled" ? sResult.value.data : [],
         tasksResult.status === "fulfilled" ? tasksResult.value.data : [],
         fraudLogsResult.status === "fulfilled" ? fraudLogsResult.value.data : [],
         badgesResult.status === "fulfilled" ? badgesResult.value.data : [],
@@ -593,7 +826,7 @@ export default function AdminDashboard() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
-              <Button onClick={() => exportData("users")} variant="outline" className="bg-white">
+              <Button onClick={() => exportDataFunction("users")} variant="outline" className="bg-white">
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
@@ -646,13 +879,24 @@ export default function AdminDashboard() {
             <CardContent className="p-3 lg:p-4">
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
-                  <div className="text-lg lg:text-2xl font-bold">{stats.activeUsers}</div>
-                  <div className="text-xs lg:text-sm opacity-90 truncate">Active Users</div>
-                  <div className="text-xs opacity-75">
-                    {((stats.activeUsers / stats.totalUsers) * 100 || 0).toFixed(1)}% active
-                  </div>
+                  <div className="text-lg lg:text-2xl font-bold">{stats.fraudDetected}</div>
+                  <div className="text-xs lg:text-sm opacity-90 truncate">Fraud Detected</div>
+                  <div className="text-xs opacity-75">{stats.highRiskUsers} high risk</div>
                 </div>
-                <Activity className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
+                <Shield className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
+            <CardContent className="p-3 lg:p-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="text-lg lg:text-2xl font-bold">{stats.avgUserBalance.toFixed(2)}</div>
+                  <div className="text-xs lg:text-sm opacity-90 truncate">Avg User Balance</div>
+                  <div className="text-xs opacity-75">${stats.topEarner.toFixed(2)} top earner</div>
+                </div>
+                <Award className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -661,79 +905,18 @@ export default function AdminDashboard() {
             <CardContent className="p-3 lg:p-4">
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">
-                  <div className="text-lg lg:text-2xl font-bold">{stats.activeTasks}</div>
-                  <div className="text-xs lg:text-sm opacity-90 truncate">Active Tasks</div>
-                  <div className="text-xs opacity-75">of {stats.totalTasks} total</div>
+                  <div className="text-lg lg:text-2xl font-bold">{stats.totalTasks}</div>
+                  <div className="text-xs lg:text-sm opacity-90 truncate">Total Tasks</div>
+                  <div className="text-xs opacity-75">{stats.activeTasks} active</div>
                 </div>
-                <Target className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white">
-            <CardContent className="p-3 lg:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="text-lg lg:text-2xl font-bold">${stats.revenue.toFixed(2)}</div>
-                  <div className="text-xs lg:text-sm opacity-90 truncate">Revenue</div>
-                  <div className="text-xs opacity-75">{stats.conversionRate.toFixed(1)}% conversion</div>
-                </div>
-                <TrendingUp className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
+                <FileText className="h-6 w-6 lg:h-8 lg:w-8 opacity-80 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Mobile-First Tabs */}
-        <Tabs defaultValue="overview" className="space-y-4 lg:space-y-6">
-          {/* Desktop Tab Navigation */}
-          <div className="hidden lg:block">
-            <TabsList className="grid w-full grid-cols-8">
-              <TabsTrigger value="overview">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="withdrawals">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Withdrawals
-                {stats.pendingWithdrawals > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {stats.pendingWithdrawals}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="users">
-                <Users className="h-4 w-4 mr-2" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger value="fraud">
-                <Shield className="h-4 w-4 mr-2" />
-                Fraud
-                {stats.fraudDetected > 0 && (
-                  <Badge variant="destructive" className="ml-2">
-                    {stats.fraudDetected}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="tasks">
-                <Target className="h-4 w-4 mr-2" />
-                Tasks
-              </TabsTrigger>
-              <TabsTrigger value="badges">
-                <Award className="h-4 w-4 mr-2" />
-                Badges
-              </TabsTrigger>
-              <TabsTrigger value="audit">
-                <FileText className="h-4 w-4 mr-2" />
-                Audit
-              </TabsTrigger>
-              <TabsTrigger value="settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
+        <div className="space-y-4 lg:space-y-6">
           {/* Mobile Tab Navigation - Horizontal Scroll */}
           <div className="lg:hidden">
             <div className="overflow-x-auto scrollbar-hide">
@@ -746,7 +929,7 @@ export default function AdminDashboard() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <BarChart3 className="h-4 w-4" />
+                  <Users className="h-4 w-4" />
                   <span>Overview</span>
                 </button>
                 <button
@@ -760,9 +943,9 @@ export default function AdminDashboard() {
                   <DollarSign className="h-4 w-4" />
                   <span>Withdrawals</span>
                   {stats.pendingWithdrawals > 0 && (
-                    <Badge variant="destructive" className="text-xs px-1 py-0 ml-1">
+                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                       {stats.pendingWithdrawals}
-                    </Badge>
+                    </span>
                   )}
                 </button>
                 <button
@@ -787,9 +970,9 @@ export default function AdminDashboard() {
                   <Shield className="h-4 w-4" />
                   <span>Fraud</span>
                   {stats.fraudDetected > 0 && (
-                    <Badge variant="destructive" className="text-xs px-1 py-0 ml-1">
+                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
                       {stats.fraudDetected}
-                    </Badge>
+                    </span>
                   )}
                 </button>
                 <button
@@ -800,7 +983,7 @@ export default function AdminDashboard() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Target className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                   <span>Tasks</span>
                 </button>
                 <button
@@ -840,108 +1023,49 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Overview Tab - Mobile Optimized */}
+          {/* Tab Content */}
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-              <MobileCard title="📊 Platform Health">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>User Engagement</span>
-                      <span className="font-semibold">
-                        {((stats.activeUsers / stats.totalUsers) * 100 || 0).toFixed(1)}%
-                      </span>
-                    </div>
-                    <Progress value={(stats.activeUsers / stats.totalUsers) * 100 || 0} className="h-2" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Task Completion Rate</span>
-                      <span className="font-semibold">{stats.conversionRate.toFixed(1)}%</span>
-                    </div>
-                    <Progress value={stats.conversionRate} className="h-2" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Active Tasks</span>
-                      <span className="font-semibold">
-                        {((stats.activeTasks / stats.totalTasks) * 100 || 0).toFixed(1)}%
-                      </span>
-                    </div>
-                    <Progress value={(stats.activeTasks / stats.totalTasks) * 100 || 0} className="h-2" />
-                  </div>
-                </div>
-              </MobileCard>
-
-              <MobileCard title="💰 Financial Overview">
+            <div className="space-y-4">
+              <MobileCard title="📊 Recent Activity">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <div>
-                      <div className="text-sm text-gray-600">Total Revenue</div>
-                      <div className="font-bold text-green-600">${stats.revenue.toFixed(2)}</div>
+                  {transactions.slice(0, 5).map((transaction: any) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{transaction.profiles?.email}</div>
+                        <div className="text-xs text-gray-600 truncate">{transaction.description}</div>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <div className="font-bold text-green-600 text-sm">${Number(transaction.amount).toFixed(2)}</div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
-                    <TrendingUp className="h-5 w-5 text-green-500" />
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <div>
-                      <div className="text-sm text-gray-600">Total Paid Out</div>
-                      <div className="font-bold text-blue-600">${stats.totalPaid.toFixed(2)}</div>
+                  ))}
+                  {transactions.length === 0 && (
+                    <div className="text-center py-6 text-gray-500">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No recent activity</p>
                     </div>
-                    <DollarSign className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                    <div>
-                      <div className="text-sm text-gray-600">Avg User Balance</div>
-                      <div className="font-bold text-orange-600">${stats.avgUserBalance.toFixed(2)}</div>
-                    </div>
-                    <Users className="h-5 w-5 text-orange-500" />
-                  </div>
+                  )}
                 </div>
               </MobileCard>
             </div>
           )}
 
-          {/* Recent Activity - Mobile Optimized */}
-          {activeTab === "overview" && (
-            <MobileCard title="🔄 Recent Activity" className="mt-4 lg:mt-6">
-              <div className="space-y-3">
-                {transactions.slice(0, 5).map((transaction: any) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">{transaction.profiles?.email}</div>
-                      <div className="text-xs text-gray-600 truncate">{transaction.description}</div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className="font-bold text-green-600 text-sm">${Number(transaction.amount).toFixed(2)}</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(transaction.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {transactions.length === 0 && (
-                  <div className="text-center py-6 text-gray-500">
-                    <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No recent activity</p>
-                  </div>
-                )}
-              </div>
-            </MobileCard>
-          )}
-
-          {/* Withdrawals Tab - Mobile Optimized */}
+          {/* Withdrawals Tab */}
           {activeTab === "withdrawals" && (
             <MobileCard title="💳 Withdrawal Management">
               <div className="space-y-4">
-                {/* Mobile Search and Filter */}
+                {/* Search and Filter */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
+                    <input
+                      type="text"
                       placeholder="Search withdrawals..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
+                      className="w-full pl-3 pr-3 py-2 border rounded-md"
                     />
                   </div>
                   <select
@@ -956,7 +1080,7 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
-                {/* Mobile Withdrawal List */}
+                {/* Withdrawal List */}
                 {filteredWithdrawals.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -974,18 +1098,17 @@ export default function AdminDashboard() {
                               </div>
                               <div className="text-xs text-gray-500">{withdrawal.profiles?.username}</div>
                             </div>
-                            <Badge
-                              variant={
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 withdrawal.status === "completed"
-                                  ? "default"
+                                  ? "bg-green-100 text-green-800"
                                   : withdrawal.status === "pending"
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                              className="flex-shrink-0"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                              }`}
                             >
                               {withdrawal.status}
-                            </Badge>
+                            </span>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1038,8 +1161,7 @@ export default function AdminDashboard() {
                                 onClick={() => handleWithdrawalAction(withdrawal, "approve")}
                                 className="bg-green-600 hover:bg-green-700 flex-1"
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
+                                ✅ Approve
                               </Button>
                               <Button
                                 size="sm"
@@ -1047,8 +1169,7 @@ export default function AdminDashboard() {
                                 onClick={() => handleWithdrawalAction(withdrawal, "reject")}
                                 className="flex-1"
                               >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
+                                ❌ Reject
                               </Button>
                             </div>
                           )}
@@ -1061,19 +1182,19 @@ export default function AdminDashboard() {
             </MobileCard>
           )}
 
-          {/* Users Tab - Mobile Optimized */}
+          {/* Users Tab */}
           {activeTab === "users" && (
             <MobileCard title="👥 User Management">
               <div className="space-y-4">
-                {/* Mobile Search and Filter */}
+                {/* Search and Filter */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
-                    <Input
+                    <input
+                      type="text"
                       placeholder="Search users..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
+                      className="w-full pl-3 pr-3 py-2 border rounded-md"
                     />
                   </div>
                   <select
@@ -1088,7 +1209,7 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
-                {/* Mobile User List */}
+                {/* User List */}
                 {filteredUsers.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1107,18 +1228,17 @@ export default function AdminDashboard() {
                                 <div className="text-xs text-blue-600">Ref: {user.referral_code}</div>
                               )}
                             </div>
-                            <Badge
-                              variant={
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 user.status === "banned"
-                                  ? "destructive"
+                                  ? "bg-red-100 text-red-800"
                                   : user.status === "suspended"
-                                    ? "secondary"
-                                    : "default"
-                              }
-                              className="flex-shrink-0"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-green-100 text-green-800"
+                              }`}
                             >
                               {user.status === "banned" ? "BANNED" : user.status?.toUpperCase() || "ACTIVE"}
-                            </Badge>
+                            </span>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1152,8 +1272,7 @@ export default function AdminDashboard() {
                               onClick={() => viewUserDetails(user)}
                               className="flex-1"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              👁️ View
                             </Button>
                             {user.status !== "banned" ? (
                               <Button
@@ -1162,8 +1281,7 @@ export default function AdminDashboard() {
                                 onClick={() => handleUserAction(user.id, "ban")}
                                 className="flex-1"
                               >
-                                <Ban className="h-4 w-4 mr-1" />
-                                Ban
+                                🚫 Ban
                               </Button>
                             ) : (
                               <Button
@@ -1172,8 +1290,7 @@ export default function AdminDashboard() {
                                 onClick={() => handleUserAction(user.id, "unban")}
                                 className="flex-1"
                               >
-                                <UserCheck className="h-4 w-4 mr-1" />
-                                Unban
+                                ✅ Unban
                               </Button>
                             )}
                           </div>
@@ -1186,24 +1303,77 @@ export default function AdminDashboard() {
             </MobileCard>
           )}
 
-          {/* Keep existing desktop tabs for tasks, analytics, settings */}
+          {/* Fraud Tab */}
+          {activeTab === "fraud" && (
+            <MobileCard title="🛡️ Fraud Detection">
+              <div className="space-y-4">
+                {fraudLogs.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No fraud detected. System is monitoring.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {fraudLogs.map((fraud: any) => (
+                      <Card key={fraud.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-start">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-sm truncate">{fraud.profiles?.email}</div>
+                              <div className="text-xs text-gray-500 capitalize">
+                                {fraud.event_type.replace("_", " ")}
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskLevelColor(fraud.risk_level)}`}
+                            >
+                              {fraud.risk_level}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-600">Confidence:</span>
+                              <div className="font-bold">{(Number(fraud.confidence_score) * 100).toFixed(0)}%</div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">IP:</span>
+                              <div className="font-mono text-xs">{fraud.ip_address}</div>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => viewFraudDetails(fraud)}
+                            className="w-full"
+                          >
+                            👁️ View Details
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </MobileCard>
+          )}
+
+          {/* Tasks Tab */}
           {activeTab === "tasks" && (
             <MobileCard title="🎯 Task Management">
               <div className="space-y-4">
-                <div className="flex gap-2">
-                  <Button className="flex-1">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Task
-                  </Button>
-                  <Button variant="outline">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import
-                  </Button>
-                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setEditingTask(null)
+                    setShowTaskCreationModal(true)
+                  }}
+                >
+                  ➕ Add New Task
+                </Button>
 
                 {tasks.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No tasks found</p>
                   </div>
                 ) : (
@@ -1216,9 +1386,13 @@ export default function AdminDashboard() {
                               <div className="font-medium text-sm truncate">{task.title}</div>
                               <div className="text-xs text-gray-500">{task.provider}</div>
                             </div>
-                            <Badge variant={task.is_active ? "default" : "secondary"} className="flex-shrink-0">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                task.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
                               {task.is_active ? "Active" : "Inactive"}
-                            </Badge>
+                            </span>
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1232,10 +1406,6 @@ export default function AdminDashboard() {
                                 ${Number(task.reward_amount || 0).toFixed(2)}
                               </div>
                             </div>
-                            <div>
-                              <span className="text-gray-600">Completions:</span>
-                              <div className="font-medium">{task.completion_count || 0}</div>
-                            </div>
                           </div>
 
                           <div className="flex gap-2 pt-2">
@@ -1245,12 +1415,18 @@ export default function AdminDashboard() {
                               onClick={() => viewTaskDetails(task)}
                               className="flex-1"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
+                              👁️ View
                             </Button>
-                            <Button size="sm" variant="outline" className="flex-1">
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingTask(task)
+                                setShowTaskCreationModal(true)
+                              }}
+                              className="flex-1"
+                            >
+                              ✏️ Edit
                             </Button>
                           </div>
                         </div>
@@ -1262,533 +1438,265 @@ export default function AdminDashboard() {
             </MobileCard>
           )}
 
-          {activeTab === "analytics" && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-              <MobileCard title="📈 User Analytics">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <span className="text-sm">Average Balance</span>
-                    <span className="font-bold text-blue-600">${stats.avgUserBalance.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm">Top Earner</span>
-                    <span className="font-bold text-green-600">${stats.topEarner.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                    <span className="text-sm">Conversion Rate</span>
-                    <span className="font-bold text-purple-600">{stats.conversionRate.toFixed(2)}%</span>
-                  </div>
-                </div>
-              </MobileCard>
+          {/* Badges Tab */}
+          {activeTab === "badges" && (
+            <MobileCard title="🏆 Badge Management">
+              <div className="space-y-4">
+                <Button
+                  className="w-full"
+                  onClick={() =>
+                    createBadge({
+                      name: "New Badge",
+                      description: "Badge description",
+                      icon: "🏆",
+                      requirement_type: "task_completion",
+                      requirement_value: 10,
+                      reward_amount: 1.0,
+                    })
+                  }
+                >
+                  ➕ Add New Badge
+                </Button>
 
-              <MobileCard title="💰 Platform Revenue">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm">Total Revenue</span>
-                    <span className="font-bold text-green-600">${stats.revenue.toFixed(2)}</span>
+                {badges.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No badges found</p>
                   </div>
-                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <span className="text-sm">Total Paid Out</span>
-                    <span className="font-bold text-blue-600">${stats.totalPaid.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                    <span className="text-sm">Profit Margin</span>
-                    <span className="font-bold text-orange-600">
-                      {stats.totalPaid > 0 ? ((stats.revenue / stats.totalPaid) * 100).toFixed(1) : 0}%
-                    </span>
-                  </div>
-                </div>
-              </MobileCard>
-            </div>
-          )}
+                ) : (
+                  <div className="space-y-3">
+                    {badges.map((badge: any) => (
+                      <Card key={badge.id} className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl">{badge.icon}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-bold text-sm">{badge.name}</div>
+                              <div className="text-xs text-gray-600">{badge.description}</div>
+                            </div>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                badge.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {badge.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </div>
 
-          {activeTab === "settings" && (
-            <MobileCard title="⚙️ Platform Settings">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <Label htmlFor="min-withdrawal">Minimum Withdrawal (USD)</Label>
-                    <Input id="min-withdrawal" type="number" defaultValue="2.00" step="0.01" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="max-withdrawal">Maximum Withdrawal (USD)</Label>
-                    <Input id="max-withdrawal" type="number" defaultValue="1000.00" step="0.01" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="referral-rate">Referral Commission (%)</Label>
-                    <Input id="referral-rate" type="number" defaultValue="10" className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="daily-bonus">Daily Login Bonus (USD)</Label>
-                    <Input id="daily-bonus" type="number" defaultValue="0.25" step="0.01" className="mt-1" />
-                  </div>
-                </div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-600">Requirement:</span>
+                              <div className="font-medium">
+                                {badge.requirement_value} {badge.requirement_type.replace("_", " ")}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Reward:</span>
+                              <div className="font-bold text-green-600">${Number(badge.reward_amount).toFixed(2)}</div>
+                            </div>
+                          </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
-                      <p className="text-sm text-gray-600">Temporarily disable user access</p>
-                    </div>
-                    <Switch id="maintenance-mode" />
+                          <div className="flex gap-2 pt-2">
+                            <Button size="sm" variant="outline" className="flex-1">
+                              👁️ View
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={badge.is_active ? "destructive" : "default"}
+                              onClick={() => toggleBadgeActive(badge.id, !badge.is_active)}
+                              className="flex-1"
+                            >
+                              {badge.is_active ? "🚫 Disable" : "✅ Enable"}
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <Label htmlFor="new-registrations">Allow New Registrations</Label>
-                      <p className="text-sm text-gray-600">Enable/disable new user signups</p>
-                    </div>
-                    <Switch id="new-registrations" defaultChecked />
-                  </div>
-                </div>
-
-                <Button className="w-full">Save Settings</Button>
+                )}
               </div>
             </MobileCard>
           )}
 
-          {/* Fraud Detection Tab */}
-          {activeTab === "fraud" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-red-500" />
-                  Fraud Detection System
-                </CardTitle>
-                <CardDescription>Monitor and manage suspicious activities</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {fraudLogs.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No fraud detected. System is monitoring.</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>User</TableHead>
-                        <TableHead>Event Type</TableHead>
-                        <TableHead>Risk Level</TableHead>
-                        <TableHead>Confidence</TableHead>
-                        <TableHead>IP Address</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fraudLogs.map((fraud: any) => (
-                        <TableRow key={fraud.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{fraud.profiles?.email}</div>
-                              <div className="text-sm text-gray-500">{fraud.profiles?.username}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="capitalize">{fraud.event_type.replace("_", " ")}</TableCell>
-                          <TableCell>
-                            <Badge className={getRiskLevelColor(fraud.risk_level)}>{fraud.risk_level}</Badge>
-                          </TableCell>
-                          <TableCell>{(Number(fraud.confidence_score) * 100).toFixed(0)}%</TableCell>
-                          <TableCell className="font-mono text-sm">{fraud.ip_address}</TableCell>
-                          <TableCell>{new Date(fraud.created_at).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            <Button size="sm" variant="ghost" onClick={() => viewFraudDetails(fraud)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Badges Tab */}
-          {activeTab === "badges" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-yellow-500" />
-                  Badge Management
-                </CardTitle>
-                <CardDescription>Manage achievement badges and rewards</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {badges.map((badge: any) => (
-                    <Card key={badge.id} className="border-2">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="text-2xl">{badge.icon}</div>
-                          <div>
-                            <div className="font-bold">{badge.name}</div>
-                            <div className="text-sm text-gray-600">{badge.description}</div>
-                          </div>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>Requirement:</span>
-                            <span className="font-medium">
-                              {badge.requirement_value} {badge.requirement_type.replace("_", " ")}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Reward:</span>
-                            <span className="font-bold text-green-600">${Number(badge.reward_amount).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Earned:</span>
-                            <span className="font-medium">{badge.user_badges?.length || 0} times</span>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                          <Button size="sm" variant="outline" className="flex-1">
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                          <Switch checked={badge.is_active} />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Audit Trail Tab */}
+          {/* Audit Tab */}
           {activeTab === "audit" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Admin Audit Trail
-                </CardTitle>
-                <CardDescription>Track all administrative actions</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <MobileCard title="📋 Admin Audit Trail">
+              <div className="space-y-4">
                 {adminActions.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No admin actions recorded yet</p>
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Admin</TableHead>
-                        <TableHead>Action</TableHead>
-                        <TableHead>Target</TableHead>
-                        <TableHead>Details</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {adminActions.map((action: any) => (
-                        <TableRow key={action.id}>
-                          <TableCell>{action.profiles?.email}</TableCell>
-                          <TableCell className="capitalize">{action.action_type.replace("_", " ")}</TableCell>
-                          <TableCell className="capitalize">{action.target_type}</TableCell>
-                          <TableCell className="text-sm">{action.reason || "No details"}</TableCell>
-                          <TableCell>{new Date(action.created_at).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div className="space-y-3">
+                    {adminActions.map((action: any) => (
+                      <Card key={action.id} className="p-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-sm">{action.profiles?.email}</div>
+                              <div className="text-xs text-gray-500 capitalize">
+                                {action.action_type.replace("_", " ")}
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(action.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-gray-600">Target:</span>
+                            <span className="font-medium ml-1 capitalize">{action.target_type}</span>
+                          </div>
+                          {action.reason && (
+                            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">{action.reason}</div>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </MobileCard>
           )}
 
-          {/* Enhanced Settings Tab */}
+          {/* Settings Tab */}
           {activeTab === "settings" && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    System Configuration
-                  </CardTitle>
-                  <CardDescription>Configure platform settings and parameters</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="min-withdrawal">Minimum Withdrawal (USD)</Label>
-                      <Input
-                        id="min-withdrawal"
-                        type="number"
-                        defaultValue={systemSettings.min_withdrawal_amount || "2.00"}
-                        step="0.01"
-                        onBlur={(e) => updateSystemSetting("min_withdrawal_amount", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="max-withdrawal">Maximum Withdrawal (USD)</Label>
-                      <Input
-                        id="max-withdrawal"
-                        type="number"
-                        defaultValue={systemSettings.max_withdrawal_amount || "1000.00"}
-                        step="0.01"
-                        onBlur={(e) => updateSystemSetting("max_withdrawal_amount", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="referral-rate">Referral Commission Rate</Label>
-                      <Input
-                        id="referral-rate"
-                        type="number"
-                        defaultValue={Number(systemSettings.referral_commission_rate || 0.1) * 100}
-                        step="1"
-                        onBlur={(e) => updateSystemSetting("referral_commission_rate", Number(e.target.value) / 100)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="daily-bonus">Daily Login Bonus (USD)</Label>
-                      <Input
-                        id="daily-bonus"
-                        type="number"
-                        defaultValue={systemSettings.daily_login_bonus || "0.25"}
-                        step="0.01"
-                        onBlur={(e) => updateSystemSetting("daily_login_bonus", e.target.value)}
-                      />
-                    </div>
+            <MobileCard title="⚙️ Platform Settings">
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Minimum Withdrawal (USD)</label>
+                    <input
+                      type="number"
+                      defaultValue={systemSettings.min_withdrawal_amount || "2.00"}
+                      step="0.01"
+                      className="w-full px-3 py-2 border rounded-md"
+                      onBlur={(e) => updateSystemSetting("min_withdrawal_amount", e.target.value)}
+                    />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Maximum Withdrawal (USD)</label>
+                    <input
+                      type="number"
+                      defaultValue={systemSettings.max_withdrawal_amount || "1000.00"}
+                      step="0.01"
+                      className="w-full px-3 py-2 border rounded-md"
+                      onBlur={(e) => updateSystemSetting("max_withdrawal_amount", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Referral Commission (%)</label>
+                    <input
+                      type="number"
+                      defaultValue={Number(systemSettings.referral_commission_rate || 0.1) * 100}
+                      step="1"
+                      className="w-full px-3 py-2 border rounded-md"
+                      onBlur={(e) => updateSystemSetting("referral_commission_rate", Number(e.target.value) / 100)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Daily Login Bonus (USD)</label>
+                    <input
+                      type="number"
+                      defaultValue={systemSettings.daily_login_bonus || "0.25"}
+                      step="0.01"
+                      className="w-full px-3 py-2 border rounded-md"
+                      onBlur={(e) => updateSystemSetting("daily_login_bonus", e.target.value)}
+                    />
+                  </div>
+                </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <Label htmlFor="maintenance-mode">Maintenance Mode</Label>
-                        <p className="text-sm text-gray-600">Temporarily disable user access to the platform</p>
-                      </div>
-                      <Switch
-                        id="maintenance-mode"
-                        checked={systemSettings.maintenance_mode === "true"}
-                        onCheckedChange={(checked) => updateSystemSetting("maintenance_mode", checked.toString())}
-                      />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <div className="font-medium">Maintenance Mode</div>
+                      <p className="text-sm text-gray-600">Temporarily disable user access</p>
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <Label htmlFor="new-registrations">Allow New Registrations</Label>
-                        <p className="text-sm text-gray-600">Enable or disable new user signups</p>
-                      </div>
-                      <Switch
-                        id="new-registrations"
-                        checked={systemSettings.allow_new_registrations !== "false"}
-                        onCheckedChange={(checked) =>
-                          updateSystemSetting("allow_new_registrations", checked.toString())
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <Label htmlFor="fraud-detection">Fraud Detection System</Label>
-                        <p className="text-sm text-gray-600">Enable automatic fraud detection and prevention</p>
-                      </div>
-                      <Switch
-                        id="fraud-detection"
-                        checked={systemSettings.fraud_detection_enabled !== "false"}
-                        onCheckedChange={(checked) =>
-                          updateSystemSetting("fraud_detection_enabled", checked.toString())
-                        }
-                      />
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={systemSettings.maintenance_mode === "true"}
+                      onChange={(e) => updateSystemSetting("maintenance_mode", e.target.checked.toString())}
+                      className="w-4 h-4"
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <div className="font-medium">Allow New Registrations</div>
+                      <p className="text-sm text-gray-600">Enable/disable new user signups</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={systemSettings.allow_new_registrations !== "false"}
+                      onChange={(e) => updateSystemSetting("allow_new_registrations", e.target.checked.toString())}
+                      className="w-4 h-4"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <div className="font-medium">Fraud Detection System</div>
+                      <p className="text-sm text-gray-600">Enable automatic fraud detection</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={systemSettings.fraud_detection_enabled !== "false"}
+                      onChange={(e) => updateSystemSetting("fraud_detection_enabled", e.target.checked.toString())}
+                      className="w-4 h-4"
+                    />
+                  </div>
+                </div>
+
+                <Button className="w-full">💾 Save All Settings</Button>
+              </div>
+            </MobileCard>
           )}
-        </Tabs>
+        </div>
       </div>
 
-      {/* Keep existing modals but make them mobile-friendly */}
-      <Dialog open={showActionModal} onOpenChange={setShowActionModal}>
-        <DialogContent className="bg-white mx-4 max-w-md">
-          <DialogHeader>
-            <DialogTitle>{actionType === "approve" ? "Approve" : "Reject"} Withdrawal</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <p className="text-sm">
-                <strong>User:</strong> {selectedWithdrawal?.profiles?.email}
-              </p>
-              <p className="text-sm">
-                <strong>Amount:</strong> ${Number(selectedWithdrawal?.amount || 0).toFixed(2)}
-              </p>
-              <p className="text-sm">
-                <strong>Method:</strong> {selectedWithdrawal?.method}
-              </p>
-              <div className="text-sm">
-                <strong>Account Details:</strong>
-                <div className="mt-1 p-2 bg-blue-50 rounded border font-mono text-xs">
-                  {selectedWithdrawal?.account_details ? (
-                    typeof selectedWithdrawal.account_details === "object" ? (
-                      Object.entries(selectedWithdrawal.account_details).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
-                          <span className="capitalize">{key.replace("_", " ")}:</span>
-                          <span className="font-semibold">{String(value)}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span>{selectedWithdrawal.account_details}</span>
-                    )
-                  ) : (
-                    <span className="text-red-500">No account details</span>
-                  )}
-                </div>
+      {/* Withdrawal Action Modal */}
+      {showActionModal && (
+        <Dialog open={showActionModal} onOpenChange={setShowActionModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{actionType === "approve" ? "Approve Withdrawal" : "Reject Withdrawal"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <p>
+                  <strong>User:</strong> {selectedWithdrawal?.profiles?.email}
+                </p>
+                <p>
+                  <strong>Amount:</strong> ${Number(selectedWithdrawal?.amount || 0).toFixed(2)}
+                </p>
+                <p>
+                  <strong>Method:</strong> {selectedWithdrawal?.method}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Admin Notes:</label>
+                <Textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  placeholder="Add notes for this action..."
+                  rows={3}
+                />
               </div>
             </div>
-            <div>
-              <Label htmlFor="admin-notes">Notes</Label>
-              <Textarea
-                id="admin-notes"
-                placeholder="Add notes..."
-                value={adminNotes}
-                onChange={(e) => setAdminNotes(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowActionModal(false)} className="flex-1">
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowActionModal(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={confirmWithdrawalAction}
-                className={`flex-1 ${actionType === "approve" ? "bg-green-600" : "bg-red-600"}`}
                 disabled={actionLoading}
+                className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : ""}
+                variant={actionType === "reject" ? "destructive" : "default"}
               >
                 {actionLoading ? "Processing..." : actionType === "approve" ? "Approve" : "Reject"}
               </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
-        <DialogContent className="bg-white mx-4 max-w-md">
-          <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                <div>
-                  <Label>Email</Label>
-                  <p className="font-medium text-sm">{selectedUser.email}</p>
-                </div>
-                <div>
-                  <Label>Username</Label>
-                  <p className="font-medium text-sm">{selectedUser.username || "Not set"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Balance</Label>
-                    <p className="font-bold text-green-600">${Number(selectedUser.balance || 0).toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <Label>Total Earned</Label>
-                    <p className="font-bold">${Number(selectedUser.total_earned || 0).toFixed(2)}</p>
-                  </div>
-                </div>
-                <div>
-                  <Label>Referral Code</Label>
-                  <p className="font-mono text-sm">{selectedUser.referral_code || "Not generated"}</p>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <Badge variant={selectedUser.status === "banned" ? "destructive" : "default"}>
-                    {selectedUser.status?.toUpperCase() || "ACTIVE"}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
-        <DialogContent className="bg-white mx-4 max-w-md">
-          <DialogHeader>
-            <DialogTitle>Task Details</DialogTitle>
-          </DialogHeader>
-          {selectedTask && (
-            <div className="space-y-4">
-              <div>
-                <Label>Title</Label>
-                <p className="font-medium text-sm">{selectedTask.title}</p>
-              </div>
-              <div>
-                <Label>Description</Label>
-                <p className="text-sm">{selectedTask.description}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Reward</Label>
-                  <p className="font-bold text-green-600">${Number(selectedTask.reward_amount || 0).toFixed(2)}</p>
-                </div>
-                <div>
-                  <Label>Completions</Label>
-                  <p className="font-medium">{selectedTask.completion_count || 0}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Enhanced Fraud Modal */}
-      <Dialog open={showFraudModal} onOpenChange={setShowFraudModal}>
-        <DialogContent className="bg-white max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-500" />
-              Fraud Detection Details
-            </DialogTitle>
-          </DialogHeader>
-          {selectedFraud && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>User</Label>
-                  <p className="font-medium">{selectedFraud.profiles?.email}</p>
-                </div>
-                <div>
-                  <Label>Event Type</Label>
-                  <p className="font-medium capitalize">{selectedFraud.event_type.replace("_", " ")}</p>
-                </div>
-                <div>
-                  <Label>Risk Level</Label>
-                  <Badge className={getRiskLevelColor(selectedFraud.risk_level)}>{selectedFraud.risk_level}</Badge>
-                </div>
-                <div>
-                  <Label>Confidence Score</Label>
-                  <p className="font-bold">{(Number(selectedFraud.confidence_score) * 100).toFixed(0)}%</p>
-                </div>
-                <div>
-                  <Label>IP Address</Label>
-                  <p className="font-mono">{selectedFraud.ip_address}</p>
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <p>{new Date(selectedFraud.created_at).toLocaleString()}</p>
-                </div>
-              </div>
-              <div>
-                <Label>Details</Label>
-                <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">
-                  {JSON.stringify(selectedFraud.details, null, 2)}
-                </pre>
-              </div>
-              <div>
-                <Label>User Agent</Label>
-                <p className="text-sm text-gray-600 break-all">{selectedFraud.user_agent}</p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

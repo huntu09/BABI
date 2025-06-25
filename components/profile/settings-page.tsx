@@ -18,8 +18,10 @@ interface SettingsPageProps {
 
 export default function SettingsPage({ user, profile, onBack }: SettingsPageProps) {
   const [username, setUsername] = useState(profile?.username || "")
+  const [fullName, setFullName] = useState(profile?.full_name || "") // Add this
   const [email, setEmail] = useState(user.email || "")
   const [phone, setPhone] = useState(profile?.phone || "")
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "") // Add this
   const [darkMode, setDarkMode] = useState(true)
   const [twoFactor, setTwoFactor] = useState(false)
   const [language, setLanguage] = useState("en")
@@ -56,10 +58,10 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
   }
 
   const handleUpdateProfile = async () => {
-    if (!username.trim()) {
+    if (!username.trim() && !fullName.trim()) {
       toast({
         title: "Error",
-        description: "Username cannot be empty",
+        description: "Username or full name is required",
         variant: "destructive",
       })
       return
@@ -71,7 +73,9 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
         .from("profiles")
         .update({
           username: username.trim(),
+          full_name: fullName.trim(), // Add this
           phone: phone.trim(),
+          avatar_url: avatarUrl.trim(), // Add this
         })
         .eq("id", user.id)
 
@@ -176,6 +180,16 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
             </h3>
             <div className="space-y-4">
               <div>
+                <Label className="text-gray-300 text-sm">Full Name</Label>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="bg-slate-700 border-slate-600 text-white mt-1"
+                  placeholder="Enter your full name"
+                  disabled={loading}
+                />
+              </div>
+              <div>
                 <Label className="text-gray-300 text-sm">Username</Label>
                 <Input
                   value={username}
@@ -188,7 +202,31 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
               <div>
                 <Label className="text-gray-300 text-sm">Email</Label>
                 <Input value={email} disabled className="bg-slate-700 border-slate-600 text-gray-400 mt-1" />
-                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                <div className="flex items-center space-x-2 mt-1">
+                  <p className="text-xs text-gray-500">Email cannot be changed</p>
+                  {profile?.email_verified && (
+                    <span className="text-xs text-green-400 flex items-center space-x-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>Verified</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <Label className="text-gray-300 text-sm">Avatar URL (Optional)</Label>
+                <Input
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  className="bg-slate-700 border-slate-600 text-white mt-1"
+                  placeholder="Enter avatar image URL"
+                  disabled={loading}
+                />
               </div>
               <div>
                 <Label className="text-gray-300 text-sm">Phone Number (Optional)</Label>
@@ -221,8 +259,8 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-white text-sm">Two-Factor Authentication</div>
-                  <div className="text-gray-400 text-xs">Add extra security to your account</div>
+                  <div className="text-white text-sm font-medium">Two-Factor Authentication</div>
+                  <div className="text-gray-300 text-xs">Add extra security to your account</div>
                 </div>
                 <Switch
                   checked={twoFactor}
@@ -243,34 +281,34 @@ export default function SettingsPage({ user, profile, onBack }: SettingsPageProp
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-gray-300 text-sm">Current Password</Label>
+                    <Label className="text-gray-300 text-sm font-medium">Current Password</Label>
                     <Input
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 mt-1"
                       placeholder="Enter current password"
                       disabled={loading}
                     />
                   </div>
                   <div>
-                    <Label className="text-gray-300 text-sm">New Password</Label>
+                    <Label className="text-gray-300 text-sm font-medium">New Password</Label>
                     <Input
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 mt-1"
                       placeholder="Enter new password"
                       disabled={loading}
                     />
                   </div>
                   <div>
-                    <Label className="text-gray-300 text-sm">Confirm New Password</Label>
+                    <Label className="text-gray-300 text-sm font-medium">Confirm New Password</Label>
                     <Input
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 mt-1"
                       placeholder="Confirm new password"
                       disabled={loading}
                     />

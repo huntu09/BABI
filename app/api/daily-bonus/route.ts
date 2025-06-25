@@ -1,6 +1,7 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { transactionManager } from "@/lib/transaction-manager"
 
 export async function POST() {
   try {
@@ -70,13 +71,32 @@ export async function POST() {
       return NextResponse.json({ error: "Failed to claim bonus: " + claimError.message }, { status: 500 })
     }
 
+    // 🔥 NEW: Create transaction record for daily bonus
+    const bonusAmountInUSD = totalBonus / 100 // Convert points to USD
+    const transaction = await transactionManager.createEarningTransaction(
+      user.id,
+      bonusAmountInUSD,
+      "daily_bonus",
+      `Daily login bonus (Day ${profile.login_streak}) - ${bonusAmount} base + ${streakBonus} streak bonus`,
+      existingBonus?.id, // Reference to daily_bonuses record if available
+      "daily_bonus",
+    )
+
+    if (!transaction) {
+      console.warn("⚠️ Failed to create transaction record for daily bonus")
+    } else {
+      console.log("✅ Daily bonus transaction created:", transaction.id)
+    }
+
     return NextResponse.json({
       success: true,
       bonusAmount: totalBonus,
+      bonusAmountUSD: bonusAmountInUSD,
       streakBonus,
       currentStreak: profile.login_streak,
-      message: `You earned ${totalBonus} points! (${bonusAmount} base + ${streakBonus} streak bonus)`,
+      message: `You earned ${totalBonus} points ($${bonusAmountInUSD.toFixed(2)})! (${bonusAmount} base + ${streakBonus} streak bonus)`,
       newBalance: result.new_balance,
+      transactionId: transaction?.id,
     })
   } catch (error) {
     console.error("API Error:", error)

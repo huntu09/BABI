@@ -1,6 +1,7 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { transactionManager } from "@/lib/transaction-manager"
 
 // Force dynamic rendering
 export const dynamic = "force-dynamic"
@@ -46,6 +47,11 @@ export async function POST(request: Request) {
 
     const { amount, method, accountDetails } = body
 
+    // Validate accountDetails
+    if (!accountDetails || (typeof accountDetails !== "object" && typeof accountDetails !== "string")) {
+      return NextResponse.json({ error: "Invalid account details" }, { status: 400 })
+    }
+
     if (!amount || !method || !accountDetails) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
@@ -60,7 +66,7 @@ export async function POST(request: Request) {
     const normalizedMethod = method.toLowerCase()
 
     // Validate method
-    const allowedMethods = ["dana", "gopay", "shopeepay", "ovo"]
+    const allowedMethods = ["dana", "gopay", "shopeepay", "ovo", "paypal", "bank_transfer", "crypto", "gift_card"]
     if (!allowedMethods.includes(normalizedMethod)) {
       return NextResponse.json({ error: `Invalid payment method: ${method}` }, { status: 400 })
     }
@@ -130,7 +136,7 @@ export async function POST(request: Request) {
       user_id: user.id,
       amount: amountInUSD,
       method: normalizedMethod,
-      account_details: accountDetails,
+      account_details: accountDetails, // Proper JSONB field
       status: "pending",
     }
 
@@ -158,25 +164,27 @@ export async function POST(request: Request) {
 
     console.log("✅ Withdrawal created:", withdrawal.id)
 
-    // STEP 3: Create transaction record
-    try {
-      await supabase.from("transactions").insert({
-        user_id: user.id,
-        type: "withdraw_pending",
-        amount: -amountInUSD,
-        description: `Withdrawal request via ${normalizedMethod} (Pending approval)`,
-        reference_id: withdrawal.id,
-        reference_type: "withdrawal",
-      })
-      console.log("✅ Transaction logged")
-    } catch (transactionError) {
-      console.log("⚠️ Transaction record creation failed:", transactionError)
+    // STEP 3: Create transaction record with proper reference
+    const transaction = await transactionManager.createSpendingTransaction(
+      user.id,
+      amountInUSD,
+      "withdraw_pending",
+      `Withdrawal request via ${normalizedMethod} (Pending approval) - ${typeof accountDetails === "object" ? JSON.stringify(accountDetails) : accountDetails}`,
+      withdrawal.id,
+      "withdrawal",
+    )
+
+    if (!transaction) {
+      console.warn("⚠️ Failed to create transaction record for withdrawal")
+    } else {
+      console.log("✅ Withdrawal transaction created:", transaction.id)
     }
 
     return NextResponse.json({
       success: true,
       withdrawal,
       newBalance,
+      transactionId: transaction?.id,
       message: `Withdrawal request submitted! $${amountInUSD.toFixed(2)} has been deducted from your balance. Awaiting admin approval.`,
     })
   } catch (error) {

@@ -18,6 +18,9 @@ interface Notification {
   priority: "low" | "medium" | "high"
   icon?: string
   color?: string
+  user_id?: string // Add to match DB
+  is_read?: boolean // Add to match DB
+  created_at?: string // Add to match DB
 }
 
 interface RealTimeNotificationsProps {

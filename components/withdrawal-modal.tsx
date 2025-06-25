@@ -24,7 +24,7 @@ export default function WithdrawalModal({ paymentMethod, currentBalance, onClose
     dana: {
       name: "DANA",
       icon: "💳",
-      minimum: 200, // $2.00 = 200 points
+      minimum: 200,
       fee: 0,
       placeholder: "Enter your DANA phone number",
       color: "from-blue-600 to-blue-700",
@@ -45,37 +45,29 @@ export default function WithdrawalModal({ paymentMethod, currentBalance, onClose
       placeholder: "Enter your ShopeePay phone number",
       color: "from-orange-600 to-orange-700",
     },
-    ltc: {
-      name: "Litecoin (LTC)",
-      icon: "🪙",
+    ovo: {
+      name: "OVO",
+      icon: "🟣",
+      minimum: 200,
+      fee: 0,
+      placeholder: "Enter your OVO phone number",
+      color: "from-purple-600 to-purple-700",
+    },
+    paypal: {
+      name: "PayPal",
+      icon: "💰",
       minimum: 500,
       fee: 50,
-      placeholder: "Enter your LTC wallet address",
-      color: "from-gray-600 to-gray-700",
+      placeholder: "Enter your PayPal email address",
+      color: "from-blue-500 to-blue-600",
     },
-    doge: {
-      name: "Dogecoin (DOGE)",
-      icon: "🐕",
-      minimum: 500,
-      fee: 25,
-      placeholder: "Enter your DOGE wallet address",
-      color: "from-yellow-600 to-yellow-700",
-    },
-    bnb: {
-      name: "Binance Coin (BNB)",
-      icon: "🟡",
+    crypto: {
+      name: "Cryptocurrency",
+      icon: "₿",
       minimum: 1000,
       fee: 100,
-      placeholder: "Enter your BNB wallet address",
-      color: "from-yellow-500 to-orange-600",
-    },
-    trx: {
-      name: "TRON (TRX)",
-      icon: "🔴",
-      minimum: 500,
-      fee: 10,
-      placeholder: "Enter your TRX wallet address",
-      color: "from-red-600 to-red-700",
+      placeholder: "Enter your crypto wallet address",
+      color: "from-orange-500 to-yellow-600",
     },
   }
 
@@ -89,13 +81,19 @@ export default function WithdrawalModal({ paymentMethod, currentBalance, onClose
 
     setLoading(true)
     try {
+      // Create proper account details object
+      const accountDetails = {
+        [method.name.toLowerCase().includes("paypal") ? "email" : "phone"]: accountInfo,
+        method_name: method.name,
+      }
+
       const response = await fetch("/api/request-withdrawal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number.parseFloat(amount),
-          method: method.name,
-          walletAddress: accountInfo,
+          method: paymentMethod, // Use the key, not method.name
+          accountDetails, // Send as object, not walletAddress
         }),
       })
 

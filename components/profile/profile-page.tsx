@@ -36,12 +36,20 @@ interface User {
 
 interface Profile {
   id: string
-  email?: string
+  email: string // Required
   username?: string
-  balance: number // Use balance instead of points
+  full_name?: string // Add this
+  avatar_url?: string // Add this
+  phone?: string
+  balance: number
   total_earned: number
   referral_code: string
-  account_status?: string
+  status: string // Fix: was account_status
+  is_admin?: boolean // Add this
+  email_verified?: boolean // Add this
+  login_streak?: number // Add this
+  created_at?: string
+  updated_at?: string
 }
 
 interface ProfilePageProps {
@@ -101,21 +109,26 @@ export default function ProfilePage({ user, profile, onBack }: ProfilePageProps)
     )
   }
 
-  // Ensure safe values
   const safeUser = {
     id: user.id || "",
-    email: user.email || "user@example.com",
+    email: user.email || "", // Remove fallback since it's required
     created_at: user.created_at || new Date().toISOString(),
   }
 
   const safeProfile = {
     id: currentProfile.id || user.id || "",
-    email: currentProfile.email || user.email || "user@example.com",
-    username: currentProfile.username || safeUser.email.split("@")[0] || "User",
-    balance: currentProfile.balance || 0, // Use balance from database
+    email: currentProfile.email || user.email || "",
+    username: currentProfile.username || currentProfile.full_name || safeUser.email.split("@")[0] || "User",
+    full_name: currentProfile.full_name || "",
+    avatar_url: currentProfile.avatar_url || "",
+    phone: currentProfile.phone || "",
+    balance: currentProfile.balance || 0,
     total_earned: currentProfile.total_earned || 0,
     referral_code: currentProfile.referral_code || `REF${safeUser.id.slice(0, 8)}`,
-    account_status: currentProfile.account_status || "active",
+    status: currentProfile.status || "active", // Fix: was account_status
+    is_admin: currentProfile.is_admin || false,
+    email_verified: currentProfile.email_verified || false,
+    login_streak: currentProfile.login_streak || 0,
   }
 
   const handleUpdateProfile = async () => {
@@ -211,9 +224,28 @@ export default function ProfilePage({ user, profile, onBack }: ProfilePageProps)
         {/* Profile Header - Clean & Simple */}
         <div className="flex items-center space-x-4 py-6">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-2 border-green-400 flex items-center justify-center text-xl font-medium">
-              {safeProfile.username.charAt(0).toUpperCase()}
-            </div>
+            {safeProfile.avatar_url ? (
+              <img
+                src={safeProfile.avatar_url || "/placeholder.svg"}
+                alt="Profile"
+                className="w-16 h-16 rounded-full border-2 border-green-400 object-cover"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full border-2 border-green-400 flex items-center justify-center text-xl font-medium">
+                {(safeProfile.username || safeProfile.full_name || safeProfile.email).charAt(0).toUpperCase()}
+              </div>
+            )}
+            {safeProfile.email_verified && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
@@ -248,7 +280,9 @@ export default function ProfilePage({ user, profile, onBack }: ProfilePageProps)
                 </div>
               ) : (
                 <>
-                  <h2 className="text-xl font-medium">{safeProfile.username}</h2>
+                  <h2 className="text-xl font-medium">
+                    {safeProfile.username || safeProfile.full_name || safeProfile.email.split("@")[0]}
+                  </h2>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -284,8 +318,8 @@ export default function ProfilePage({ user, profile, onBack }: ProfilePageProps)
         <div className="grid grid-cols-2 gap-4">
           <Card className="bg-slate-800 border-slate-700">
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-white">0</div>
-              <div className="text-gray-400 text-sm">Offers Completed</div>
+              <div className="text-2xl font-bold text-white">{safeProfile.login_streak}</div>
+              <div className="text-gray-400 text-sm">Login Streak</div>
             </CardContent>
           </Card>
           <Card className="bg-slate-800 border-slate-700">

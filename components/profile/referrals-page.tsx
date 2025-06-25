@@ -34,7 +34,7 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
   const loadReferralData = async () => {
     setLoading(true)
     try {
-      // Load referral statistics
+      // Load referral statistics with correct field name
       const { data: referrals, error } = await supabase
         .from("referrals")
         .select(`
@@ -55,13 +55,13 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
       const referralList = referrals || []
       setReferralData(referralList)
 
-      // Calculate stats
-      const totalCommission = referralList.reduce((sum: number, ref: any) => sum + (ref.commission_earned || 0), 0)
+      // Calculate stats with correct field name (bonus_earned)
+      const totalCommission = referralList.reduce((sum: number, ref: any) => sum + (ref.bonus_earned || 0), 0)
       const thisMonth = new Date()
       thisMonth.setDate(1)
       const thisMonthCommission = referralList
         .filter((ref: any) => new Date(ref.created_at) >= thisMonth)
-        .reduce((sum: number, ref: any) => sum + (ref.commission_earned || 0), 0)
+        .reduce((sum: number, ref: any) => sum + (ref.bonus_earned || 0), 0)
 
       setReferralStats({
         totalReferrals: referralList.length,
@@ -71,10 +71,12 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
       })
     } catch (error) {
       console.error("Error loading referral data:", error)
-      // Use mock data if database fails
+      // Updated mock data to match real database structure
       setReferralData([
         {
-          id: 1,
+          id: "mock-uuid-1", // UUID string instead of number
+          referrer_id: user.id,
+          referred_id: "mock-uuid-referred-1",
           profiles: {
             username: "John D.",
             email: "john@example.com",
@@ -82,11 +84,13 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
             total_earned: 12.5,
             created_at: "2024-01-18T10:00:00Z",
           },
-          commission_earned: 1.25,
+          bonus_earned: 1.25, // Fixed field name
           created_at: "2024-01-18T10:00:00Z",
         },
         {
-          id: 2,
+          id: "mock-uuid-2", // UUID string instead of number
+          referrer_id: user.id,
+          referred_id: "mock-uuid-referred-2",
           profiles: {
             username: "Sarah M.",
             email: "sarah@example.com",
@@ -94,7 +98,7 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
             total_earned: 32.0,
             created_at: "2024-01-15T14:30:00Z",
           },
-          commission_earned: 3.2,
+          bonus_earned: 3.2, // Fixed field name
           created_at: "2024-01-15T14:30:00Z",
         },
       ])
@@ -295,7 +299,7 @@ export default function ReferralsPage({ user, profile, onBack }: ReferralsPagePr
                       </div>
                       <div className="text-right">
                         <div className="text-green-400 font-bold text-sm">
-                          ${(referral.commission_earned || 0).toFixed(2)}
+                          ${(referral.bonus_earned || 0).toFixed(2)}
                         </div>
                         <div className="text-gray-400 text-xs">Your commission</div>
                       </div>

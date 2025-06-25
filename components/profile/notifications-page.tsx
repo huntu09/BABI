@@ -46,47 +46,59 @@ export default function NotificationsPage({ user, profile, onBack }: Notificatio
     }
   }
 
-  const loadRecentNotifications = () => {
-    // Mock notifications - in real app, load from database
-    const mockNotifications = [
-      {
-        id: 1,
-        title: "New High-Paying Offer Available!",
-        description: "Earn $25.00 by completing a simple survey",
-        time: "2 hours ago",
-        type: "offer",
-        unread: true,
-        icon: "🎯",
-      },
-      {
-        id: 2,
-        title: "Withdrawal Completed",
-        description: "Your $10.00 withdrawal to DANA has been processed",
-        time: "1 day ago",
-        type: "withdrawal",
-        unread: false,
-        icon: "💳",
-      },
-      {
-        id: 3,
-        title: "New Referral Joined!",
-        description: "You earned $1.25 commission from your referral",
-        time: "2 days ago",
-        type: "referral",
-        unread: false,
-        icon: "👥",
-      },
-      {
-        id: 4,
-        title: "Daily Bonus Available",
-        description: "Don't forget to claim your daily login bonus",
-        time: "3 days ago",
-        type: "bonus",
-        unread: false,
-        icon: "🎁",
-      },
-    ]
-    setRecentNotifications(mockNotifications)
+  const loadRecentNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20)
+
+      if (error) throw error
+
+      // Transform data untuk match existing format
+      const transformedData =
+        data?.map((notif) => ({
+          id: notif.id,
+          title: notif.title,
+          description: notif.message,
+          time: formatTimeAgo(notif.created_at),
+          type: notif.type,
+          unread: !notif.is_read,
+          icon: getNotificationIcon(notif.type),
+        })) || []
+
+      setRecentNotifications(transformedData)
+    } catch (error) {
+      console.error("Error loading notifications:", error)
+    }
+  }
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+
+    if (diffInHours < 1) return "Just now"
+    if (diffInHours < 24) return `${diffInHours} hours ago`
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays} days ago`
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "offer":
+        return "🎯"
+      case "withdrawal":
+        return "💳"
+      case "referral":
+        return "👥"
+      case "bonus":
+        return "🎁"
+      default:
+        return "ℹ️"
+    }
   }
 
   const updateNotificationSetting = async (key: string, value: boolean) => {
@@ -110,26 +122,44 @@ export default function NotificationsPage({ user, profile, onBack }: Notificatio
     }
   }
 
-  const markAsRead = (notificationId: number) => {
-    setRecentNotifications((prev) =>
-      prev.map((notif: any) => (notif.id === notificationId ? { ...notif, unread: false } : notif)),
-    )
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
+
+      setRecentNotifications((prev) =>
+        prev.map((notif: any) => (notif.id === notificationId ? { ...notif, unread: false } : notif)),
+      )
+    } catch (error) {
+      console.error("Error marking as read:", error)
+    }
   }
 
-  const markAllAsRead = () => {
-    setRecentNotifications((prev) => prev.map((notif: any) => ({ ...notif, unread: false })))
-    toast({
-      title: "All notifications marked as read",
-      description: "Your notifications have been updated.",
-    })
+  const markAllAsRead = async () => {
+    try {
+      await supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false)
+
+      setRecentNotifications((prev) => prev.map((notif: any) => ({ ...notif, unread: false })))
+      toast({
+        title: "All notifications marked as read",
+        description: "Your notifications have been updated.",
+      })
+    } catch (error) {
+      console.error("Error marking all as read:", error)
+    }
   }
 
-  const deleteNotification = (notificationId: number) => {
-    setRecentNotifications((prev) => prev.filter((notif: any) => notif.id !== notificationId))
-    toast({
-      title: "Notification deleted",
-      description: "The notification has been removed.",
-    })
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      await supabase.from("notifications").delete().eq("id", notificationId)
+
+      setRecentNotifications((prev) => prev.filter((notif: any) => notif.id !== notificationId))
+      toast({
+        title: "Notification deleted",
+        description: "The notification has been removed.",
+      })
+    } catch (error) {
+      console.error("Error deleting notification:", error)
+    }
   }
 
   const notificationSettings = [

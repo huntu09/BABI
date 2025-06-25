@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { amount, method, walletAddress } = await request.json()
+    const { amount, method, accountDetails } = await request.json()
 
     // Convert amount to points (assuming $1 = 100 points)
     const pointsRequired = Math.floor(amount * 100)
@@ -32,12 +32,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Insufficient balance" }, { status: 400 })
     }
 
+    // Validate method against database constraints
+    const allowedMethods = ["dana", "gopay", "shopeepay", "ovo", "paypal", "bank_transfer", "crypto", "gift_card"]
+    if (!allowedMethods.includes(method)) {
+      return NextResponse.json({ error: `Invalid payment method: ${method}` }, { status: 400 })
+    }
+
     // Create withdrawal request
     const { error: withdrawalError } = await supabase.from("withdrawals").insert({
       user_id: session.user.id,
-      amount: pointsRequired,
+      amount: pointsRequired / 100, // Convert points back to USD
       method,
-      wallet_address: walletAddress,
+      account_details: accountDetails, // Use the object directly
       status: "pending",
     })
 

@@ -1,10 +1,10 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import type { DailyBonusStatus } from "@/types"
 
-export const dynamic = "force-dynamic"
-
-export async function GET() {
+// Update the return type and add proper typing throughout
+export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: string }>> {
   try {
     const supabase = createServerComponentClient({ cookies })
 
@@ -19,7 +19,7 @@ export async function GET() {
 
     const today = new Date().toLocaleDateString("en-CA") // YYYY-MM-DD format
 
-    // Check if bonus already claimed today
+    // Check if bonus already claimed today with proper typing
     const { data: todayBonus, error: bonusError } = await supabase
       .from("daily_bonuses")
       .select("id, amount, streak_count, login_streak, created_at")
@@ -50,16 +50,20 @@ export async function GET() {
     const streakBonus = Math.min(currentStreak * 5, 50) // Up to 50 extra points
     const nextBonusAmount = baseBonus + streakBonus
 
-    return NextResponse.json({
+    const response: DailyBonusStatus = {
       success: true,
       claimed: !!todayBonus,
       bonusDetails: todayBonus
         ? {
+            id: todayBonus.id,
+            user_id: user.id,
+            bonus_date: today,
             amount: Number(todayBonus.amount),
-            claimedAt: todayBonus.created_at,
-            streakAtClaim: todayBonus.login_streak || todayBonus.streak_count,
+            streak_count: todayBonus.streak_count || todayBonus.login_streak || 1,
+            login_streak: todayBonus.login_streak || todayBonus.streak_count || 1,
+            created_at: todayBonus.created_at,
           }
-        : null,
+        : undefined,
       nextBonus: {
         amount: nextBonusAmount,
         baseAmount: baseBonus,
@@ -70,7 +74,9 @@ export async function GET() {
         currentBalance: Number(profile.balance) || 0,
         loginStreak: currentStreak,
       },
-    })
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("API Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

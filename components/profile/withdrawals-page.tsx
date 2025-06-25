@@ -1,341 +1,358 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { ArrowLeft, CheckCircle, Clock, XCircle, AlertCircle, Wallet, TrendingUp, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Clock, CheckCircle, XCircle, Plus, RefreshCw, AlertCircle } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { toast } from "@/hooks/use-toast"
-import WithdrawalModal from "../withdrawal-modal"
 
-interface WithdrawalsPageProps {
-  user: any
-  profile: any
-  onBack: () => void
+interface Withdrawal {
+  id: string
+  amount: number
+  method: string
+  status: string
+  account_details: any
+  created_at: string
+  processed_at: string | null
 }
 
-export default function WithdrawalsPage({ user, profile, onBack }: WithdrawalsPageProps) {
-  const [showNewWithdrawal, setShowNewWithdrawal] = useState(false)
-  const [withdrawalHistory, setWithdrawalHistory] = useState([])
-  const [withdrawalStats, setWithdrawalStats] = useState({
-    totalWithdrawals: 0,
-    totalAmount: 0,
-    pendingCount: 0,
-    completedCount: 0,
-  })
-  const [loading, setLoading] = useState(false)
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("")
+const getStatusConfig = (status: string) => {
+  switch (status) {
+    case "completed":
+      return {
+        color: "bg-emerald-500",
+        bgColor: "bg-emerald-50",
+        textColor: "text-emerald-700",
+        icon: CheckCircle,
+        label: "Completed",
+      }
+    case "processing":
+      return {
+        color: "bg-blue-500",
+        bgColor: "bg-blue-50",
+        textColor: "text-blue-700",
+        icon: Clock,
+        label: "Processing",
+      }
+    case "pending":
+      return {
+        color: "bg-amber-500",
+        bgColor: "bg-amber-50",
+        textColor: "text-amber-700",
+        icon: Clock,
+        label: "Pending",
+      }
+    case "rejected":
+      return {
+        color: "bg-red-500",
+        bgColor: "bg-red-50",
+        textColor: "text-red-700",
+        icon: XCircle,
+        label: "Rejected",
+      }
+    default:
+      return {
+        color: "bg-gray-500",
+        bgColor: "bg-gray-50",
+        textColor: "text-gray-700",
+        icon: AlertCircle,
+        label: "Unknown",
+      }
+  }
+}
 
+const getMethodIcon = (method: string) => {
+  switch (method.toLowerCase()) {
+    case "dana":
+      return "💙"
+    case "gopay":
+      return "💚"
+    case "ovo":
+      return "💜"
+    case "crypto":
+      return "₿"
+    case "paypal":
+      return "💰"
+    default:
+      return "💳"
+  }
+}
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffTime = Math.abs(now.getTime() - date.getTime())
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 1) return "Today"
+  if (diffDays === 2) return "Yesterday"
+  if (diffDays <= 7) return `${diffDays - 1} days ago`
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  })
+}
+
+const formatAccountDetails = (details: any, method: string) => {
+  if (typeof details === "string") {
+    try {
+      details = JSON.parse(details)
+    } catch {
+      return details
+    }
+  }
+
+  if (method.toLowerCase() === "crypto") {
+    if (details?.wallet_address) {
+      const addr = details.wallet_address
+      return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+    }
+    if (details?.crypto_type && details?.wallet_address) {
+      const addr = details.wallet_address
+      return `${details.crypto_type}: ${addr.slice(0, 6)}...${addr.slice(-4)}`
+    }
+  }
+
+  if (details?.account_number) {
+    const num = details.account_number
+    return `••••${num.slice(-4)}`
+  }
+  if (details?.phone) {
+    const phone = details.phone
+    return `••••${phone.slice(-4)}`
+  }
+  if (details?.email) {
+    const email = details.email
+    const [name, domain] = email.split("@")
+    return `${name.slice(0, 2)}••••@${domain}`
+  }
+
+  return "••••••••"
+}
+
+export default function WithdrawalsPage() {
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    loadWithdrawalData()
+    fetchWithdrawals()
   }, [])
 
-  const loadWithdrawalData = async () => {
-    setLoading(true)
+  const fetchWithdrawals = async () => {
     try {
-      const { data: withdrawals, error } = await supabase
+      setLoading(true)
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) {
+        setError("User not authenticated")
+        return
+      }
+
+      const { data, error: fetchError } = await supabase
         .from("withdrawals")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(20)
 
-      if (error) throw error
+      if (fetchError) {
+        console.error("Fetch withdrawals error:", fetchError)
+        setError("Failed to load withdrawals")
+        return
+      }
 
-      const withdrawalList = withdrawals || []
-      setWithdrawalHistory(withdrawalList)
-
-      // Calculate stats
-      const totalAmount = withdrawalList.reduce((sum: number, w: any) => sum + w.amount, 0)
-      const pendingCount = withdrawalList.filter((w: any) => w.status === "pending").length
-      const completedCount = withdrawalList.filter((w: any) => w.status === "completed").length
-
-      setWithdrawalStats({
-        totalWithdrawals: withdrawalList.length,
-        totalAmount,
-        pendingCount,
-        completedCount,
-      })
-    } catch (error) {
-      console.error("Error loading withdrawal data:", error)
-      // Use mock data if database fails
-      const mockWithdrawals = [
-        {
-          id: 1,
-          amount: 5.0,
-          method: "DANA",
-          status: "completed",
-          created_at: "2024-01-20T10:00:00Z",
-          processed_at: "2024-01-20T10:15:00Z",
-          account_details: { wallet_address: "+62812345678" },
-        },
-        {
-          id: 2,
-          amount: 3.5,
-          method: "GoPay",
-          status: "processing",
-          created_at: "2024-01-19T14:30:00Z",
-          processed_at: null,
-          account_details: { wallet_address: "+62812345679" },
-        },
-        {
-          id: 3,
-          amount: 10.0,
-          method: "PayPal",
-          status: "rejected",
-          created_at: "2024-01-18T09:15:00Z",
-          processed_at: "2024-01-18T16:20:00Z",
-          account_details: { wallet_address: "user@example.com" },
-        },
-      ]
-      setWithdrawalHistory(mockWithdrawals)
-      setWithdrawalStats({
-        totalWithdrawals: 3,
-        totalAmount: 18.5,
-        pendingCount: 1,
-        completedCount: 1,
-      })
+      setWithdrawals(data || [])
+    } catch (err) {
+      console.error("Error:", err)
+      setError("Something went wrong")
     } finally {
       setLoading(false)
     }
   }
 
-  const getMethodIcon = (method: string) => {
-    const icons: { [key: string]: string } = {
-      DANA: "💳",
-      GoPay: "🟢",
-      ShopeePay: "🛒",
-      PayPal: "💰",
-      Bitcoin: "₿",
-      Litecoin: "🪙",
-      Dogecoin: "🐕",
-      BNB: "🟡",
-      TRX: "🔴",
-    }
-    return icons[method] || "💳"
+  const totalWithdrawn = withdrawals.filter((w) => w.status === "completed").reduce((sum, w) => sum + w.amount, 0)
+
+  const pendingAmount = withdrawals
+    .filter((w) => w.status === "pending" || w.status === "processing")
+    .reduce((sum, w) => sum + w.amount, 0)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-8">
+            <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="p-2">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold text-slate-900">Withdrawals</h1>
+          </div>
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-blue-600"></div>
+              <Wallet className="absolute inset-0 m-auto h-6 w-6 text-blue-600" />
+            </div>
+            <p className="text-slate-600 mt-4 font-medium">Loading your withdrawals...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-600"
-      case "processing":
-        return "bg-blue-600"
-      case "pending":
-        return "bg-yellow-600"
-      case "rejected":
-        return "bg-red-600"
-      default:
-        return "bg-gray-600"
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="h-3 w-3 mr-1" />
-      case "processing":
-        return <Clock className="h-3 w-3 mr-1" />
-      case "pending":
-        return <Clock className="h-3 w-3 mr-1" />
-      case "rejected":
-        return <XCircle className="h-3 w-3 mr-1" />
-      default:
-        return <AlertCircle className="h-3 w-3 mr-1" />
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  const handleNewWithdrawal = () => {
-    const balanceInUSD = profile?.balance || 0
-    if (balanceInUSD < 2.0) {
-      toast({
-        title: "Insufficient Balance",
-        description: "Minimum withdrawal is $2.00",
-        variant: "destructive",
-      })
-      return
-    }
-    setShowNewWithdrawal(true)
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <div className="flex items-center gap-4 mb-8">
+            <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="p-2">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-2xl font-bold text-slate-900">Withdrawals</h1>
+          </div>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Something went wrong</h3>
+            <p className="text-slate-600 mb-6">{error}</p>
+            <Button onClick={fetchWithdrawals} className="bg-blue-600 hover:bg-blue-700">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 pt-12">
-        <Button variant="ghost" onClick={onBack} className="text-white hover:bg-slate-800 p-2">
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-medium">Withdrawals</h1>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadWithdrawalData}
-            disabled={loading}
-            className="text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-md mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="p-2">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
-          <Button onClick={handleNewWithdrawal} size="sm" className="bg-green-600 hover:bg-green-700">
-            <Plus className="h-4 w-4" />
-          </Button>
+          <h1 className="text-2xl font-bold text-slate-900">Withdrawals</h1>
         </div>
-      </div>
 
-      <div className="px-4 space-y-6">
-        {/* Balance Card */}
-        <Card className="bg-green-600 border-0">
-          <CardContent className="p-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-white mb-1">${(profile?.balance || 0).toFixed(2)}</div>
-              <div className="text-green-100 text-sm">Available for Withdrawal</div>
-              <div className="text-green-100 text-xs mt-1">Minimum withdrawal: $2.00</div>
+        {/* Stats Cards */}
+        {withdrawals.length > 0 && (
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <Card className="border-0 shadow-sm bg-gradient-to-r from-emerald-500 to-emerald-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-4 w-4 opacity-80" />
+                  <span className="text-sm font-medium opacity-90">Total Withdrawn</span>
+                </div>
+                <p className="text-2xl font-bold">${totalWithdrawn.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="h-4 w-4 opacity-80" />
+                  <span className="text-sm font-medium opacity-90">Pending</span>
+                </div>
+                <p className="text-2xl font-bold">${pendingAmount.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Withdrawals List */}
+        {withdrawals.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Wallet className="h-10 w-10 text-slate-400" />
             </div>
-          </CardContent>
-        </Card>
+            <h3 className="text-xl font-semibold text-slate-900 mb-3">No withdrawals yet</h3>
+            <p className="text-slate-600 mb-8 max-w-sm mx-auto">
+              Start earning and make your first withdrawal to see your transaction history here.
+            </p>
+            <Button onClick={() => window.history.back()} className="bg-blue-600 hover:bg-blue-700">
+              Back to Dashboard
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {withdrawals.map((withdrawal) => {
+              const statusConfig = getStatusConfig(withdrawal.status)
+              const StatusIcon = statusConfig.icon
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold text-white">{withdrawalStats.totalWithdrawals}</div>
-              <div className="text-xs text-gray-400">Total</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold text-green-400">${withdrawalStats.totalAmount.toFixed(2)}</div>
-              <div className="text-xs text-gray-400">Withdrawn</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-slate-800 border-slate-700">
-            <CardContent className="p-3 text-center">
-              <div className="text-lg font-bold text-blue-400">{withdrawalStats.pendingCount}</div>
-              <div className="text-xs text-gray-400">Pending</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Withdrawal History */}
-        <div>
-          <h3 className="text-white font-medium mb-4">Withdrawal History</h3>
-          <div className="space-y-3">
-            {loading ? (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardContent className="p-8 text-center">
-                  <div className="text-gray-400">Loading withdrawals...</div>
-                </CardContent>
-              </Card>
-            ) : withdrawalHistory.length === 0 ? (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardContent className="p-8 text-center">
-                  <div className="text-4xl mb-4">💳</div>
-                  <div className="text-gray-400 mb-2">No withdrawals yet</div>
-                  <p className="text-gray-500 text-sm mb-4">Start earning and withdraw your first payment</p>
-                  <Button onClick={handleNewWithdrawal} size="sm" className="bg-green-600 hover:bg-green-700">
-                    Request Withdrawal
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              withdrawalHistory.map((withdrawal: any) => (
-                <Card key={withdrawal.id} className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{getMethodIcon(withdrawal.method)}</div>
+              return (
+                <Card key={withdrawal.id} className="border-0 shadow-sm hover:shadow-md transition-shadow bg-white">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-xl">
+                          {getMethodIcon(withdrawal.method)}
+                        </div>
                         <div>
-                          <div className="font-medium text-white text-sm">{withdrawal.method}</div>
-                          <div className="text-gray-400 text-xs">Requested: {formatDate(withdrawal.created_at)}</div>
-                          {withdrawal.processed_at && (
-                            <div className="text-gray-400 text-xs">
-                              Processed: {formatDate(withdrawal.processed_at)}
-                            </div>
-                          )}
-                          <div className="text-gray-500 text-xs mt-1">
-                            To: {withdrawal.account_details?.wallet_address || "N/A"}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl font-bold text-slate-900">${withdrawal.amount.toFixed(2)}</span>
                           </div>
+                          <p className="text-sm font-medium text-slate-600 capitalize">
+                            {withdrawal.method.replace("_", " ")}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-white">${withdrawal.amount.toFixed(2)}</div>
-                        <Badge className={`text-xs mt-1 ${getStatusColor(withdrawal.status)}`}>
-                          {getStatusIcon(withdrawal.status)}
-                          {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
-                        </Badge>
+
+                      <div className={`${statusConfig.bgColor} px-3 py-1.5 rounded-full flex items-center gap-1.5`}>
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        <span className={`text-xs font-semibold ${statusConfig.textColor}`}>{statusConfig.label}</span>
                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2 border-t border-slate-100">
+                        <span className="text-sm text-slate-500">Account</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-mono text-slate-700">
+                            {formatAccountDetails(withdrawal.account_details, withdrawal.method)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                            onClick={() => {
+                              const details =
+                                typeof withdrawal.account_details === "string"
+                                  ? withdrawal.account_details
+                                  : JSON.stringify(withdrawal.account_details)
+                              navigator.clipboard.writeText(details)
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-slate-500">Requested</span>
+                        <span className="text-sm font-medium text-slate-700">{formatDate(withdrawal.created_at)}</span>
+                      </div>
+
+                      {withdrawal.processed_at && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-slate-500">Processed</span>
+                          <span className="text-sm font-medium text-slate-700">
+                            {formatDate(withdrawal.processed_at)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
+              )
+            })}
           </div>
-        </div>
-
-        {/* New Withdrawal Button */}
-        <Button
-          onClick={handleNewWithdrawal}
-          className="w-full bg-green-600 hover:bg-green-700 py-3"
-          disabled={(profile?.balance || 0) < 2.0}
-        >
-          {(profile?.balance || 0) < 2.0 ? "Insufficient Balance" : "Request New Withdrawal"}
-        </Button>
-
-        {/* Withdrawal Info */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-4">
-            <h3 className="text-white font-medium mb-3">Withdrawal Information</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Minimum withdrawal:</span>
-                <span className="text-white">$2.00</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Processing time:</span>
-                <span className="text-white">5-30 minutes</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Available methods:</span>
-                <span className="text-white">DANA, GoPay, ShopeePay</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Fees:</span>
-                <span className="text-green-400">Free</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        )}
       </div>
-
-      {/* Withdrawal Modal */}
-      {showNewWithdrawal && (
-        <WithdrawalModal
-          paymentMethod={selectedPaymentMethod || "dana"}
-          currentBalance={Math.round((profile?.balance || 0) * 100)} // Convert to points for modal
-          onClose={() => setShowNewWithdrawal(false)}
-          onSuccess={(amount) => {
-            setShowNewWithdrawal(false)
-            loadWithdrawalData() // Reload withdrawal history
-            toast({
-              title: "Withdrawal Requested! 🎉",
-              description: "Your withdrawal request has been submitted successfully.",
-            })
-          }}
-        />
-      )}
     </div>
   )
 }

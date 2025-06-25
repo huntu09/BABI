@@ -1,6 +1,7 @@
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { transactionManager } from "@/lib/transaction-manager"
 
 export async function POST(request: Request) {
   try {
@@ -61,21 +62,36 @@ export async function POST(request: Request) {
     // Get reward amount from task
     const rewardAmount = Number(task.reward_amount) || 0
 
-    // Start transaction by creating user_task record with correct field name
+    // Start transaction by creating user_task record with in_progress status first
     const { data: userTask, error: userTaskError } = await supabase
       .from("user_tasks")
       .insert({
         user_id: user.id,
         task_id: taskId,
-        status: "completed",
-        reward_earned: rewardAmount, // Using correct field name from schema
-        completed_at: new Date().toISOString(),
+        status: "in_progress", // ✅ FIX: Start with in_progress
+        reward_earned: rewardAmount, // ✅ CORRECT: Already using reward_earned
       })
       .select()
       .single()
 
     if (userTaskError) {
       console.error("Error creating user task:", userTaskError)
+      return NextResponse.json({ error: "Failed to start task" }, { status: 500 })
+    }
+
+    // Then update to completed after successful processing
+    const { error: completeError } = await supabase
+      .from("user_tasks")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", userTask.id)
+
+    if (completeError) {
+      console.error("Error completing user task:", completeError)
+      // Rollback by deleting the user_task
+      await supabase.from("user_tasks").delete().eq("id", userTask.id)
       return NextResponse.json({ error: "Failed to complete task" }, { status: 500 })
     }
 
@@ -99,15 +115,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
     }
 
-    // Create transaction record
-    await supabase.from("transactions").insert({
-      user_id: user.id,
-      type: "task_completion",
-      amount: rewardAmount,
-      description: `Completed: ${task.title}`,
-      reference_id: userTask.id,
-      reference_type: "user_task",
-    })
+    // 🔥 IMPROVED: Create transaction record with proper reference
+    const transaction = await transactionManager.createEarningTransaction(
+      user.id,
+      rewardAmount,
+      "task_completion",
+      `Task completed: ${task.title} (${task.provider})`,
+      userTask.id,
+      "user_task",
+    )
+
+    if (!transaction) {
+      console.warn("⚠️ Failed to create transaction record for task completion")
+    } else {
+      console.log("✅ Task completion transaction created:", transaction.id)
+    }
 
     // Check for badge achievements
     await checkAndAwardBadges(supabase, user.id, newTotalEarned, newBalance)
@@ -122,6 +144,7 @@ export async function POST(request: Request) {
         points: Math.round(rewardAmount),
         category: task.task_type,
       },
+      transactionId: transaction?.id,
     })
   } catch (error) {
     console.error("API Error:", error)
@@ -180,15 +203,19 @@ async function checkAndAwardBadges(supabase: any, userId: string, totalEarned: n
 
         if (!existingBadge) {
           // Award the badge
-          await supabase.from("user_badges").insert({
-            user_id: userId,
-            badge_id: badge.id,
-            earned_at: new Date().toISOString(),
-          })
+          const { data: newBadge } = await supabase
+            .from("user_badges")
+            .insert({
+              user_id: userId,
+              badge_id: badge.id,
+              earned_at: new Date().toISOString(),
+            })
+            .select()
+            .single()
 
           // Add bonus points for badge
           if (badge.reward) {
-            const bonusAmount = Number(badge.reward)
+            const bonusAmount = Number(badge.reward) / 100 // Convert points to USD
 
             await supabase
               .from("profiles")
@@ -197,14 +224,19 @@ async function checkAndAwardBadges(supabase: any, userId: string, totalEarned: n
               })
               .eq("id", userId)
 
-            // Create transaction for badge reward
-            await supabase.from("transactions").insert({
-              user_id: userId,
-              type: "bonus",
-              amount: bonusAmount,
-              description: `Badge earned: ${badge.name}`,
-              reference_type: "badge",
-            })
+            // 🔥 IMPROVED: Create transaction for badge reward
+            const transaction = await transactionManager.createEarningTransaction(
+              userId,
+              bonusAmount,
+              "bonus",
+              `Badge earned: ${badge.name} - Achievement bonus`,
+              newBadge?.id,
+              "badge",
+            )
+
+            if (transaction) {
+              console.log("✅ Badge reward transaction created:", transaction.id)
+            }
           }
         }
       }

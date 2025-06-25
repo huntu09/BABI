@@ -6,27 +6,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Clock, CheckCircle, XCircle, RefreshCw, TrendingUp, Calendar, ExternalLink } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { OfferwallCompletion, OfferwallProvider } from "@/types"
 
 interface MyOffersTabProps {
   user: any
 }
 
-interface OfferCompletion {
-  id: string
-  external_offer_id: string
-  user_id: string
-  provider: string
-  transaction_id: string | null
-  reward_amount: number
-  status: "pending" | "completed" | "rejected"
-  ip_address?: string
-  user_agent?: string
-  completed_at: string | null
-  verified_at?: string | null
-}
-
 export default function MyOffersTab({ user }: MyOffersTabProps) {
-  const [offerCompletions, setOfferCompletions] = useState<OfferCompletion[]>([])
+  const [offerCompletions, setOfferCompletions] = useState<OfferwallCompletion[]>([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState("all")
   const supabase = createClientComponentClient()
@@ -108,8 +95,8 @@ export default function MyOffersTab({ user }: MyOffersTabProps) {
     return date.toLocaleDateString()
   }
 
-  const formatProviderName = (provider: string) => {
-    const names: { [key: string]: string } = {
+  const formatProviderName = (provider: OfferwallProvider) => {
+    const names: Record<OfferwallProvider, string> = {
       cpx_research: "CPX Research",
       adgem: "AdGem",
       lootably: "Lootably",

@@ -274,13 +274,12 @@ export class OfferwallManager {
   // Store completion in database
   private async storeCompletion(completion: OfferCompletion): Promise<void> {
     try {
-      const { error } = await this.supabase.from("offer_completions").insert({
+      const { error } = await this.supabase.from("offerwall_completions").insert({
         external_offer_id: completion.offerId,
         user_id: completion.userId,
-        provider_id: completion.providerId,
+        provider: completion.providerId, // ✅ Fixed: was provider_id
         transaction_id: completion.transactionId,
-        points_earned: completion.points,
-        payout_usd: completion.payout,
+        reward_amount: completion.points, // ✅ Fixed: was points_earned
         status: completion.status,
         completed_at: completion.completedAt.toISOString(),
         verified_at: completion.verifiedAt?.toISOString(),

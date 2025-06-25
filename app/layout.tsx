@@ -4,6 +4,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+// Tambahkan import PWAManager
+import PWAManager from "@/components/pwa-manager"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,12 +35,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Di dalam return statement, tambahkan PWAManager sebelum closing body tag
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           {children}
           <Toaster />
+          <PWAManager />
         </ThemeProvider>
       </body>
     </html>

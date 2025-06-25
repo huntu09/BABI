@@ -33,6 +33,18 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error
 
+    // Log admin action with proper admin_id (NOT NULL constraint)
+    await supabase.from("admin_actions").insert({
+      admin_id: session.user.id, // ✅ FIX: Always provide admin_id (NOT NULL)
+      action_type: action,
+      target_type: "user", // ✅ ADD: Required target_type field
+      target_id: userId,
+      details: { action, previous_status: profile },
+      reason: `Admin ${action} action on user`,
+      ip_address: request.headers.get("x-forwarded-for"),
+      user_agent: request.headers.get("user-agent"),
+    })
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })

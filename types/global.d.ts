@@ -11,14 +11,20 @@ export interface Profile {
   id: string
   user_id: string
   username: string | null
+  full_name: string | null // Add missing field
+  avatar_url: string | null // Add missing field
   email: string
-  points: number
+  phone: string | null
+  balance: number // Fix: was points
   total_earned: number
   referral_code: string
   referred_by: string | null
   is_admin: boolean
   is_banned: boolean
-  account_status: "active" | "suspended" | "pending"
+  status: "active" | "suspended" | "pending" // Fix: was account_status
+  email_verified: boolean // Add missing field
+  email_verified_at: string | null // Add missing field
+  login_streak: number // Add missing field
   suspicious_activity_count: number
   last_login: string | null
   created_at: string

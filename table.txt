@@ -1,0 +1,403 @@
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "email",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "username",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "full_name",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "avatar_url",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "balance",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": "0.00"
+  },
+  {
+    "column_name": "total_earned",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": "0.00"
+  },
+  {
+    "column_name": "referral_code",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "referred_by",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "email_verified",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "column_name": "is_admin",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'active'::text"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "last_login",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "login_streak",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "column_name": "suspicious_activity_count",
+    "data_type": "integer",
+    "is_nullable": "YES",
+    "column_default": "0"
+  },
+  {
+    "column_name": "email_verified_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "phone",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": null
+  }
+]
+
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "column_name": "referrer_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "referred_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "bonus_earned",
+    "data_type": "numeric",
+    "is_nullable": "YES",
+    "column_default": "0.00"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  }
+]
+
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "amount",
+    "data_type": "numeric",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "method",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "account_details",
+    "data_type": "jsonb",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "status",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'pending'::text"
+  },
+  {
+    "column_name": "processed_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  }
+]
+
+[
+  {
+    "column_name": "id",
+    "data_type": "uuid",
+    "is_nullable": "NO",
+    "column_default": "uuid_generate_v4()"
+  },
+  {
+    "column_name": "user_id",
+    "data_type": "uuid",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "title",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "message",
+    "data_type": "text",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "type",
+    "data_type": "text",
+    "is_nullable": "YES",
+    "column_default": "'info'::text"
+  },
+  {
+    "column_name": "is_read",
+    "data_type": "boolean",
+    "is_nullable": "YES",
+    "column_default": "false"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  }
+]
+
+[
+  {
+    "table_name": "notifications",
+    "column_name": "user_id",
+    "foreign_table_name": "profiles",
+    "foreign_column_name": "id",
+    "constraint_name": "notifications_user_id_fkey"
+  },
+  {
+    "table_name": "profiles",
+    "column_name": "referred_by",
+    "foreign_table_name": "profiles",
+    "foreign_column_name": "id",
+    "constraint_name": "profiles_referred_by_fkey"
+  },
+  {
+    "table_name": "referrals",
+    "column_name": "referred_id",
+    "foreign_table_name": "profiles",
+    "foreign_column_name": "id",
+    "constraint_name": "referrals_referred_id_fkey"
+  },
+  {
+    "table_name": "referrals",
+    "column_name": "referrer_id",
+    "foreign_table_name": "profiles",
+    "foreign_column_name": "id",
+    "constraint_name": "referrals_referrer_id_fkey"
+  },
+  {
+    "table_name": "withdrawals",
+    "column_name": "user_id",
+    "foreign_table_name": "profiles",
+    "foreign_column_name": "id",
+    "constraint_name": "withdrawals_user_id_fkey"
+  }
+]
+
+[
+  {
+    "id": "ec9b62e6-fafe-4a62-ae32-a29322915e68",
+    "email": "irukaseon@gmail.com",
+    "username": "irukaseon",
+    "full_name": null,
+    "balance": "55.06",
+    "total_earned": "1.50",
+    "login_streak": 1,
+    "email_verified": false,
+    "referral_code": "D88C7AD4",
+    "status": "active"
+  },
+  {
+    "id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "email": "viniapriani100@gmail.com",
+    "username": "indra",
+    "full_name": "Indra maulana",
+    "balance": "0.00",
+    "total_earned": "100.00",
+    "login_streak": 3,
+    "email_verified": false,
+    "referral_code": "1A80BEB1",
+    "status": "active"
+  },
+  {
+    "id": "4741f673-e673-41cd-8e7c-24385b6fce84",
+    "email": "asuszenfonelivea3@gmail.com",
+    "username": "asuszenfonelivea3",
+    "full_name": null,
+    "balance": "30.00",
+    "total_earned": "0.00",
+    "login_streak": 1,
+    "email_verified": false,
+    "referral_code": "19D9E27E",
+    "status": "active"
+  }
+]
+
+ini yang SQL ke 7 :Success. No rows returned
+
+[
+  {
+    "id": "3c6af370-6816-450b-bcdb-c1008c8758a5",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "amount": "20.00",
+    "method": "dana",
+    "status": "completed",
+    "account_details": {
+      "method": "dana",
+      "account_number": "083174660224"
+    },
+    "created_at": "2025-06-22 08:18:19.81788+00",
+    "processed_at": "2025-06-22 08:29:53.597+00"
+  },
+  {
+    "id": "2ab99804-a48a-40f5-a2a6-924da52422d4",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "amount": "20.00",
+    "method": "dana",
+    "status": "completed",
+    "account_details": {
+      "method": "dana",
+      "account_number": "083174660224"
+    },
+    "created_at": "2025-06-22 08:18:06.333461+00",
+    "processed_at": "2025-06-22 08:29:58.279+00"
+  },
+  {
+    "id": "331fcb5f-c87e-41e5-bab7-d64cdf0f6e9a",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "amount": "100.00",
+    "method": "dana",
+    "status": "completed",
+    "account_details": {
+      "method": "dana",
+      "account_number": "083174660224"
+    },
+    "created_at": "2025-06-22 08:15:36.756806+00",
+    "processed_at": "2025-06-22 08:30:03.262+00"
+  },
+  {
+    "id": "e8f3f147-9b69-4061-ac36-bb201820e1e5",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "amount": "5.00",
+    "method": "dana",
+    "status": "completed",
+    "account_details": {
+      "method": "dana",
+      "account_number": "083174660224"
+    },
+    "created_at": "2025-06-22 09:37:40.940837+00",
+    "processed_at": "2025-06-22 09:39:02.772+00"
+  },
+  {
+    "id": "09d95030-4d83-47d3-a281-d86378e1b4d8",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "amount": "5.00",
+    "method": "gopay",
+    "status": "completed",
+    "account_details": {
+      "method": "gopay",
+      "account_number": "083174660224"
+    },
+    "created_at": "2025-06-22 09:51:13.668807+00",
+    "processed_at": "2025-06-22 11:23:24.79+00"
+  }
+]
+
+[
+  {
+    "id": "dcc2fab9-a434-438f-a5d9-13a2cba3390f",
+    "user_id": "13780936-1031-4c22-94a3-194205d7e0d1",
+    "title": "Welcome to Dropiyo!",
+    "message": "Start earning by completing offers and referring friends. Check out our available tasks!",
+    "type": "info",
+    "is_read": false
+  }
+]

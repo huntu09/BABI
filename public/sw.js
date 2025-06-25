@@ -1,18 +1,79 @@
 // Service Worker for Push Notifications
 const CACHE_NAME = "dropiyo-v1"
-const urlsToCache = ["/", "/dashboard", "/icon-192x192.png", "/icon-512x512.png"]
+
+const OFFLINE_URL = "/offline"
+const FALLBACK_IMAGE = "/placeholder.svg?height=200&width=200"
+
+// Update urlsToCache untuk include offline page
+const urlsToCache = [
+  "/",
+  "/dashboard",
+  "/offline",
+  "/icon-192x192.png",
+  "/icon-512x512.png",
+  "/placeholder.svg?height=200&width=200",
+]
 
 // Install event
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)))
 })
 
-// Fetch event
+// Tambahkan setelah install event
+// Activate event - Clean old caches
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName)
+            }
+          }),
+        )
+      })
+      .then(() => {
+        // Take control of all pages
+        return self.clients.claim()
+      }),
+  )
+})
+
+// Update fetch event untuk better offline handling
 self.addEventListener("fetch", (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== "GET") return
+
+  // Handle navigation requests
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match("/offline") || caches.match("/")
+      }),
+    )
+    return
+  }
+
+  // Handle other requests
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Return cached version or fetch from network
-      return response || fetch(event.request)
+      if (response) {
+        return response
+      }
+
+      return fetch(event.request).catch(() => {
+        // Return fallback for images
+        if (event.request.destination === "image") {
+          return caches.match(FALLBACK_IMAGE)
+        }
+
+        // Return offline page for HTML requests
+        if (event.request.headers.get("accept").includes("text/html")) {
+          return caches.match("/offline")
+        }
+      })
     }),
   )
 })
@@ -58,5 +119,12 @@ self.addEventListener("notificationclick", (event) => {
   } else {
     // Default action - open the app
     event.waitUntil(clients.openWindow("/"))
+  }
+})
+
+// Tambahkan message handler untuk update
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting()
   }
 })

@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, RefreshCw, ExternalLink } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
+import type { FrontendTask } from "@/types"
 
 interface EarnTabProps {
-  onOfferClick: (offer: any) => void
+  onOfferClick: (task: FrontendTask) => void // ✅ FIX: Use proper type
 }
 
 export default function EarnTab({ onOfferClick }: EarnTabProps) {
-  const [tasks, setTasks] = useState<any[]>([])
+  const [tasks, setTasks] = useState<FrontendTask[]>([]) // ✅ FIX: Use proper type
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -21,13 +22,11 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
 
   const categories = [
     { id: "all", name: "All", icon: "🎯" },
-    { id: "survey", name: "Surveys", icon: "📊" },
-    { id: "gaming", name: "Gaming", icon: "🎮" },
-    { id: "app", name: "Apps", icon: "📱" },
-    { id: "video", name: "Videos", icon: "🎥" },
-    { id: "social", name: "Social", icon: "👥" },
-    { id: "email", name: "Email", icon: "📧" },
-    { id: "trial", name: "Trials", icon: "🆓" },
+    { id: "survey", name: "Surveys", icon: "📊" }, // ✅ FIX: Use DB value
+    { id: "video", name: "Videos", icon: "🎥" }, // ✅ FIX: Use DB value
+    { id: "app_install", name: "Apps", icon: "📱" }, // ✅ FIX: Use DB value
+    { id: "offer", name: "Offers", icon: "🎁" }, // ✅ FIX: Use DB value
+    { id: "signup", name: "Signups", icon: "✍️" }, // ✅ FIX: Use DB value
   ]
 
   useEffect(() => {
@@ -38,8 +37,10 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
     try {
       setLoading(true)
       const params = new URLSearchParams({
-        category: selectedCategory,
+        task_type: selectedCategory === "all" ? "" : selectedCategory, // ✅ FIX: Use task_type
         limit: "50",
+        include_expired: "false", // ✅ ADD: Filter expired tasks
+        include_completed: "false", // ✅ ADD: Filter completed tasks
       })
 
       const response = await fetch(`/api/tasks?${params}`)
@@ -62,11 +63,28 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
     }
   }
 
-  const handleTaskClick = async (task: any) => {
+  const handleTaskClick = async (task: FrontendTask) => {
     try {
+      // ✅ IMPROVED: Check if task can be completed
+      if (!task.can_complete) {
+        toast({
+          title: "Task Unavailable",
+          description:
+            task.status === "expired"
+              ? "This task has expired"
+              : task.status === "limit_reached"
+                ? "You've reached the limit for this task"
+                : task.status === "completed"
+                  ? "You've already completed this task"
+                  : "This task is not available",
+          variant: "destructive",
+        })
+        return
+      }
+
       setCompletingTask(task.id)
 
-      // Simulate task completion (in real app, this would open external URL)
+      // Use TaskManager for completion
       const response = await fetch("/api/tasks/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -78,15 +96,16 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
       if (data.success) {
         toast({
           title: "Task Completed! 🎉",
-          description: data.message,
+          description: `You earned ${task.points} points!`,
         })
 
-        // Show new badges if any
-        if (data.newBadges && data.newBadges.length > 0) {
+        // Show completion progress if available
+        if (task.completion_progress) {
+          const progress = task.completion_progress
           setTimeout(() => {
             toast({
-              title: "New Badge Earned! 🏆",
-              description: `You earned: ${data.newBadges.map((b: any) => b.name).join(", ")}`,
+              title: "Progress Update 📊",
+              description: `Daily: ${progress.daily_completed + 1}/${task.daily_limit || "∞"} | Total: ${progress.total_completed + 1}/${task.total_limit || "∞"}`,
             })
           }, 1000)
         }
@@ -129,6 +148,19 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
   const getCategoryIcon = (category: string) => {
     const cat = categories.find((c) => c.id === category)
     return cat?.icon || "🎯"
+  }
+
+  const getTaskStatusText = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "✓ Completed"
+      case "expired":
+        return "⏰ Expired"
+      case "limit_reached":
+        return "🚫 Limit Reached"
+      default:
+        return "Unavailable"
+    }
   }
 
   return (
@@ -203,20 +235,41 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
             {filteredTasks.map((task) => (
               <Card
                 key={task.id}
-                className="bg-slate-800 border-slate-700 cursor-pointer hover:bg-slate-700 transition-all duration-200"
+                className={`bg-slate-800 border-slate-700 cursor-pointer transition-all duration-200 ${
+                  task.can_complete ? "hover:bg-slate-700" : "opacity-60 cursor-not-allowed"
+                }`}
                 onClick={() => handleTaskClick(task)}
               >
                 <CardContent className="p-0">
                   {/* Task Header */}
                   <div className="relative h-32 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <div className="text-4xl">{getCategoryIcon(task.category)}</div>
+                    <div className="text-4xl">{getCategoryIcon(task.task_type)}</div>
 
-                    {/* Provider Badge */}
-                    <div className="absolute top-2 left-2">
-                      <Badge variant="outline" className="text-white border-white/30 bg-black/20">
-                        {task.provider}
-                      </Badge>
-                    </div>
+                    {/* Status Badge */}
+                    {task.status !== "available" && (
+                      <div className="absolute top-2 left-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-white border-white/30 ${
+                            task.status === "completed"
+                              ? "bg-green-600/20"
+                              : task.status === "expired"
+                                ? "bg-red-600/20"
+                                : task.status === "limit_reached"
+                                  ? "bg-yellow-600/20"
+                                  : "bg-blue-600/20"
+                          }`}
+                        >
+                          {task.status === "completed"
+                            ? "✓ Done"
+                            : task.status === "expired"
+                              ? "⏰ Expired"
+                              : task.status === "limit_reached"
+                                ? "🚫 Limit"
+                                : task.status}
+                        </Badge>
+                      </div>
+                    )}
 
                     {/* Points Badge */}
                     <div className="absolute top-2 right-2">
@@ -236,7 +289,7 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
                         <Badge variant="outline" className="text-xs border-slate-600 text-gray-300">
-                          {task.category}
+                          {task.task_type}
                         </Badge>
                         <Badge className={`${getDifficultyColor(task.difficulty)} text-white text-xs`}>
                           {task.difficulty}
@@ -246,17 +299,42 @@ export default function EarnTab({ onOfferClick }: EarnTabProps) {
                       <div className="text-gray-400 text-xs">{task.estimated_time}</div>
                     </div>
 
+                    {/* Progress Info */}
+                    {task.completion_progress && (task.daily_limit || task.total_limit) && (
+                      <div className="text-xs text-gray-400 mb-3">
+                        {task.daily_limit && (
+                          <span>
+                            Daily: {task.completion_progress.daily_completed}/{task.daily_limit}{" "}
+                          </span>
+                        )}
+                        {task.total_limit && (
+                          <span>
+                            Total: {task.completion_progress.total_completed}/{task.total_limit}
+                          </span>
+                        )}
+                        {task.completion_progress.expires_in && (
+                          <span className="text-yellow-400"> • Expires: {task.completion_progress.expires_in}</span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Action Button */}
                     <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                      disabled={completingTask === task.id}
+                      className={`w-full text-white ${
+                        task.can_complete ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-600 cursor-not-allowed"
+                      }`}
+                      disabled={completingTask === task.id || !task.can_complete}
                     >
                       {completingTask === task.id ? (
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <ExternalLink className="h-4 w-4 mr-2" />
                       )}
-                      {completingTask === task.id ? "Completing..." : "Start Task"}
+                      {completingTask === task.id
+                        ? "Completing..."
+                        : !task.can_complete
+                          ? getTaskStatusText(task.status)
+                          : "Start Task"}
                     </Button>
                   </div>
                 </CardContent>

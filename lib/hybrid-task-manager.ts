@@ -4,17 +4,22 @@ export interface HybridTask {
   id: string
   title: string
   description: string
-  reward_amount: number
-  task_type: string
+  reward_amount: number // ✅ FIX: Use reward_amount consistently
+  task_type: string // ✅ FIX: Use task_type consistently
   task_source: "sample" | "offerwall"
   provider: string
   difficulty: string
   estimated_time: string
   is_completed: boolean
+  can_complete: boolean // ✅ ADD: Business logic field
   recommendation_score: number
-  external_offer_id?: string
+  external_id?: string // ✅ FIX: Use external_id (not external_offer_id)
   provider_config?: any
   url?: string
+  expires_at?: string // ✅ ADD: Expiration field
+  daily_limit?: number // ✅ ADD: Limit fields
+  total_limit?: number
+  completion_count?: number // ✅ ADD: Popularity tracking
 }
 
 export interface TaskRecommendationOptions {
@@ -51,9 +56,14 @@ export class HybridTaskManager {
             url,
             external_id,
             provider_config,
-            task_source
+            task_source,
+            expires_at,
+            daily_limit,
+            total_limit,
+            completion_count
           `)
           .eq("is_active", true)
+          .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`) // ✅ ADD: Filter expired
           .order("reward_amount", { ascending: false })
           .limit(limit)
 
@@ -72,17 +82,22 @@ export class HybridTaskManager {
           id: task.id,
           title: task.title,
           description: task.description || "",
-          reward_amount: Number(task.reward_amount),
-          task_type: task.task_type,
+          reward_amount: Number(task.reward_amount), // ✅ FIX: Use reward_amount
+          task_type: task.task_type, // ✅ FIX: Use task_type
           task_source: "sample" as const,
           provider: task.provider || "Sample",
           difficulty: task.difficulty || "easy",
           estimated_time: task.estimated_time || "10 minutes",
           is_completed: completedTaskIds.has(task.id),
+          can_complete: this.canCompleteTask(task, completedTaskIds.has(task.id)), // ✅ ADD: Business logic
           recommendation_score: this.calculateRecommendationScore(task, userId),
-          external_offer_id: task.external_id,
+          external_id: task.external_id, // ✅ FIX: Use external_id
           provider_config: task.provider_config,
           url: task.url,
+          expires_at: task.expires_at,
+          daily_limit: task.daily_limit,
+          total_limit: task.total_limit,
+          completion_count: task.completion_count,
         }))
 
         allTasks = [...allTasks, ...formattedSampleTasks]
@@ -104,6 +119,7 @@ export class HybridTaskManager {
             difficulty: "easy",
             estimated_time: "5 minutes",
             is_completed: false,
+            can_complete: true,
             recommendation_score: 85,
             url: "https://cpx-research.com/survey/123",
           },
@@ -118,6 +134,7 @@ export class HybridTaskManager {
             difficulty: "medium",
             estimated_time: "30 minutes",
             is_completed: false,
+            can_complete: true,
             recommendation_score: 90,
             url: "https://adgem.com/offer/456",
           },
@@ -132,6 +149,7 @@ export class HybridTaskManager {
             difficulty: "easy",
             estimated_time: "3 minutes",
             is_completed: false,
+            can_complete: true,
             recommendation_score: 70,
             url: "https://lootably.com/videos/789",
           },
@@ -191,6 +209,18 @@ export class HybridTaskManager {
     return Math.min(Math.max(score, 0), 100)
   }
 
+  // Add helper method for completion validation:
+  private canCompleteTask(task: any, isCompleted: boolean): boolean {
+    // Check if already completed
+    if (isCompleted) return false
+
+    // Check if expired
+    if (task.expires_at && new Date(task.expires_at) < new Date()) return false
+
+    // Add more validation as needed
+    return true
+  }
+
   // Complete a sample task
   async completeSampleTask(taskId: string): Promise<{
     success: boolean
@@ -221,13 +251,13 @@ export class HybridTaskManager {
   }> {
     try {
       // For CPX Research, generate the offer URL
-      if (task.provider === "CPX Research" && task.external_offer_id) {
+      if (task.provider === "CPX Research" && task.external_id) {
         const response = await fetch("/api/offerwall/generate-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: "cpx_research",
-            offerId: task.external_offer_id,
+            offerId: task.external_id,
             taskId: task.id,
           }),
         })
