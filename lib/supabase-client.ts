@@ -34,7 +34,7 @@ export const queryHelpers = {
     const supabase = getSupabaseServerClient()
     return supabase
       .from("profiles")
-      .select("id, username, email, points, total_earned, referral_code, is_admin, is_banned")
+      .select("id, username, email, balance, total_earned, referral_code, is_admin, is_banned")
       .eq("id", userId)
       .single()
   },
