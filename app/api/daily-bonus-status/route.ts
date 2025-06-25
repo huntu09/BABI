@@ -3,7 +3,9 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import type { DailyBonusStatus } from "@/types"
 
-// Update the return type and add proper typing throughout
+// Mark as dynamic to allow cookies usage
+export const dynamic = "force-dynamic"
+
 export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: string }>> {
   try {
     const supabase = createServerComponentClient({ cookies })
@@ -17,9 +19,8 @@ export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const today = new Date().toLocaleDateString("en-CA") // YYYY-MM-DD format
+    const today = new Date().toLocaleDateString("en-CA")
 
-    // Check if bonus already claimed today with proper typing
     const { data: todayBonus, error: bonusError } = await supabase
       .from("daily_bonuses")
       .select("id, amount, streak_count, login_streak, created_at")
@@ -32,10 +33,9 @@ export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: st
       return NextResponse.json({ error: "Database error" }, { status: 500 })
     }
 
-    // Get current profile for streak info
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("login_streak, balance")
+      .select("login_streak, points") // Use 'points' instead of 'balance'
       .eq("id", user.id)
       .single()
 
@@ -44,10 +44,9 @@ export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: st
       return NextResponse.json({ error: "Profile not found" }, { status: 404 })
     }
 
-    // Calculate next bonus amount based on current streak
     const currentStreak = profile.login_streak || 1
     const baseBonus = 25
-    const streakBonus = Math.min(currentStreak * 5, 50) // Up to 50 extra points
+    const streakBonus = Math.min(currentStreak * 5, 50)
     const nextBonusAmount = baseBonus + streakBonus
 
     const response: DailyBonusStatus = {
@@ -71,7 +70,7 @@ export async function GET(): Promise<NextResponse<DailyBonusStatus | { error: st
         currentStreak: currentStreak,
       },
       profile: {
-        currentBalance: Number(profile.balance) || 0,
+        currentBalance: Number(profile.points) || 0, // Use 'points' instead of 'balance'
         loginStreak: currentStreak,
       },
     }

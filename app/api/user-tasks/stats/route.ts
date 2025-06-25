@@ -2,11 +2,13 @@ import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
+// Mark as dynamic to allow cookies usage
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const supabase = createServerComponentClient({ cookies })
 
-    // Get current user
     const {
       data: { user },
       error: userError,
@@ -16,7 +18,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user task statistics using the new function
     const { data: stats, error: statsError } = await supabase.rpc("get_user_task_stats", {
       p_user_id: user.id,
     })
