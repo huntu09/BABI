@@ -69,31 +69,46 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
 
   const initializeNotifications = async () => {
     try {
-      // Load existing notifications from localStorage
-      const stored = localStorage.getItem(`notifications_${user.id}`)
-      if (stored) {
-        const parsedNotifications = JSON.parse(stored).map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp),
-        }))
-        setNotifications(parsedNotifications)
-        updateUnreadCount(parsedNotifications)
+      // Load notifications from database instead of localStorage
+      const { data: dbNotifications, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
+
+      if (error) {
+        console.error("Error loading notifications:", error)
+        return
       }
 
-      // Add welcome notification for new users
-      if (!stored) {
-        const welcomeNotification: Notification = {
-          id: `welcome_${Date.now()}`,
-          type: "system",
+      if (dbNotifications && dbNotifications.length > 0) {
+        const parsedNotifications = dbNotifications.map((n: any) => ({
+          id: n.id,
+          type: n.type === "success" ? "reward" : n.type === "error" ? "withdrawal" : "system",
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.created_at),
+          read: n.is_read,
+          priority: n.type === "error" ? "high" : "medium",
+          color:
+            n.type === "success"
+              ? "from-green-500 to-emerald-500"
+              : n.type === "error"
+                ? "from-red-500 to-red-600"
+                : "from-blue-500 to-purple-500",
+        }))
+
+        setNotifications(parsedNotifications)
+        updateUnreadCount(parsedNotifications)
+      } else {
+        // Add welcome notification for new users
+        await supabase.from("notifications").insert({
+          user_id: user.id,
           title: "Welcome to Dropiyo! 🎉",
           message: "Start earning by completing your first offer. Claim your daily bonus too!",
-          timestamp: new Date(),
-          read: false,
-          priority: "high",
-          icon: "🎉",
-          color: "from-purple-500 to-pink-500",
-        }
-        addNotification(welcomeNotification)
+          type: "info",
+        })
       }
     } catch (error) {
       console.error("Error initializing notifications:", error)
@@ -106,43 +121,18 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
 
     const channel = supabase
       .channel("user_notifications")
+      // Subscribe ke notifications table untuk real-time notifications
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "user_tasks",
+          table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log("Task completion detected:", payload)
-          handleTaskCompletion(payload.new)
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "withdrawals",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log("Withdrawal update detected:", payload)
-          handleWithdrawalUpdate(payload.new)
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "referrals",
-          filter: `referrer_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log("New referral detected:", payload)
-          handleNewReferral(payload.new)
+          console.log("New notification received:", payload)
+          handleDatabaseNotification(payload.new)
         },
       )
       .subscribe((status) => {
@@ -160,6 +150,51 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
       console.log("Cleaning up subscriptions")
       channel.unsubscribe()
     }
+  }
+
+  // Handle notifications dari database
+  const handleDatabaseNotification = (dbNotification: any) => {
+    const notification: Notification = {
+      id: dbNotification.id,
+      type: dbNotification.type === "success" ? "reward" : dbNotification.type === "error" ? "withdrawal" : "system",
+      title: dbNotification.title,
+      message: dbNotification.message,
+      timestamp: new Date(dbNotification.created_at),
+      read: dbNotification.is_read,
+      priority: dbNotification.type === "error" ? "high" : "medium",
+      color:
+        dbNotification.type === "success"
+          ? "from-green-500 to-emerald-500"
+          : dbNotification.type === "error"
+            ? "from-red-500 to-red-600"
+            : "from-blue-500 to-purple-500",
+    }
+
+    // Add to local state
+    setNotifications((prev) => {
+      const updated = [notification, ...prev].slice(0, 50)
+      updateUnreadCount(updated)
+
+      // Show browser notification
+      if (Notification.permission === "granted" && !notification.read) {
+        new Notification(notification.title, {
+          body: notification.message,
+          icon: "/icon-192x192.png",
+          badge: "/icon-192x192.png",
+          tag: notification.id,
+        })
+      }
+
+      // Show toast for high priority
+      if (notification.priority === "high") {
+        toast({
+          title: notification.title,
+          description: notification.message,
+        })
+      }
+
+      return updated
+    })
   }
 
   const setupServiceWorker = async () => {
@@ -182,8 +217,7 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
 
   const addNotification = (notification: Notification) => {
     setNotifications((prev) => {
-      const updated = [notification, ...prev].slice(0, 50) // Keep only latest 50
-      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(updated))
+      const updated = [notification, ...prev].slice(0, 50)
       updateUnreadCount(updated)
 
       // Show browser notification if permission granted
@@ -220,19 +254,43 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
     }
   }
 
-  const markAsRead = (notificationId: string) => {
+  const markAsRead = async (notificationId: string) => {
+    // Update in database
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId)
+      .eq("user_id", user.id)
+
+    if (error) {
+      console.error("Error marking notification as read:", error)
+      return
+    }
+
+    // Update local state
     setNotifications((prev) => {
       const updated = prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(updated))
       updateUnreadCount(updated)
       return updated
     })
   }
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // Update all unread notifications in database
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false)
+
+    if (error) {
+      console.error("Error marking all notifications as read:", error)
+      return
+    }
+
+    // Update local state
     setNotifications((prev) => {
       const updated = prev.map((n) => ({ ...n, read: true }))
-      localStorage.setItem(`notifications_${user.id}`, JSON.stringify(updated))
       updateUnreadCount(updated)
       return updated
     })
@@ -248,133 +306,133 @@ export default function RealTimeNotifications({ user, profile, onNotificationCli
   }
 
   // Event handlers for real-time updates
-  const handleTaskCompletion = (task: any) => {
-    const notification: Notification = {
-      id: `task_${task.id}_${Date.now()}`,
-      type: "reward",
-      title: "Task Completed! 🎉",
-      message: `You earned ${task.points_earned} points! Keep up the great work.`,
-      timestamp: new Date(),
-      read: false,
-      priority: "medium",
-      data: task,
-      icon: "🎯",
-      color: "from-green-500 to-emerald-500",
-    }
-    addNotification(notification)
+  // const handleTaskCompletion = (task: any) => {
+  //   const notification: Notification = {
+  //     id: `task_${task.id}_${Date.now()}`,
+  //     type: "reward",
+  //     title: "Task Completed! 🎉",
+  //     message: `You earned ${task.points_earned} points! Keep up the great work.`,
+  //     timestamp: new Date(),
+  //     read: false,
+  //     priority: "medium",
+  //     data: task,
+  //     icon: "🎯",
+  //     color: "from-green-500 to-emerald-500",
+  //   }
+  //   addNotification(notification)
 
-    // Check for achievements
-    checkAchievements(task)
-  }
+  //   // Check for achievements
+  //   checkAchievements(task)
+  // }
 
-  const handleWithdrawalUpdate = (withdrawal: any) => {
-    const notification: Notification = {
-      id: `withdrawal_${withdrawal.id}_${Date.now()}`,
-      type: "withdrawal",
-      title: "Withdrawal Processed! 💳",
-      message: `Your $${(withdrawal.amount / 100).toFixed(2)} withdrawal has been processed successfully.`,
-      timestamp: new Date(),
-      read: false,
-      priority: "high",
-      data: withdrawal,
-      icon: "💰",
-      color: "from-blue-500 to-cyan-500",
-    }
-    addNotification(notification)
-  }
+  // const handleWithdrawalUpdate = (withdrawal: any) => {
+  //   const notification: Notification = {
+  //     id: `withdrawal_${withdrawal.id}_${Date.now()}`,
+  //     type: "withdrawal",
+  //     title: "Withdrawal Processed! 💳",
+  //     message: `Your $${(withdrawal.amount / 100).toFixed(2)} withdrawal has been processed successfully.`,
+  //     timestamp: new Date(),
+  //     read: false,
+  //     priority: "high",
+  //     data: withdrawal,
+  //     icon: "💰",
+  //     color: "from-blue-500 to-cyan-500",
+  //   }
+  //   addNotification(notification)
+  // }
 
-  const handleNewReferral = (referral: any) => {
-    const notification: Notification = {
-      id: `referral_${referral.id}_${Date.now()}`,
-      type: "referral",
-      title: "New Referral! 👥",
-      message: "Someone joined using your referral link. You'll earn 10% commission from their activities!",
-      timestamp: new Date(),
-      read: false,
-      priority: "medium",
-      data: referral,
-      icon: "🤝",
-      color: "from-purple-500 to-pink-500",
-    }
-    addNotification(notification)
-  }
+  // const handleNewReferral = (referral: any) => {
+  //   const notification: Notification = {
+  //     id: `referral_${referral.id}_${Date.now()}`,
+  //     type: "referral",
+  //     title: "New Referral! 👥",
+  //     message: "Someone joined using your referral link. You'll earn 10% commission from their activities!",
+  //     timestamp: new Date(),
+  //     read: false,
+  //     priority: "medium",
+  //     data: referral,
+  //     icon: "🤝",
+  //     color: "from-purple-500 to-pink-500",
+  //   }
+  //   addNotification(notification)
+  // }
 
-  const checkAchievements = (task: any) => {
-    // Simulate achievement checking
-    const achievements = [
-      {
-        id: "first_task",
-        title: "First Steps! 🚀",
-        message: "Congratulations on completing your first task!",
-        condition: () => true, // Simplified for demo
-      },
-      {
-        id: "points_milestone",
-        title: "Point Collector! ⭐",
-        message: "You've earned over 100 points! Amazing progress.",
-        condition: () => (profile?.points || 0) > 100,
-      },
-      {
-        id: "streak_master",
-        title: "Streak Master! 🔥",
-        message: "5 days login streak! You're on fire!",
-        condition: () => Math.random() > 0.8, // Random for demo
-      },
-    ]
+  // const checkAchievements = (task: any) => {
+  //   // Simulate achievement checking
+  //   const achievements = [
+  //     {
+  //       id: "first_task",
+  //       title: "First Steps! 🚀",
+  //       message: "Congratulations on completing your first task!",
+  //       condition: () => true, // Simplified for demo
+  //     },
+  //     {
+  //       id: "points_milestone",
+  //       title: "Point Collector! ⭐",
+  //       message: "You've earned over 100 points! Amazing progress.",
+  //       condition: () => (profile?.points || 0) > 100,
+  //     },
+  //     {
+  //       id: "streak_master",
+  //       title: "Streak Master! 🔥",
+  //       message: "5 days login streak! You're on fire!",
+  //       condition: () => Math.random() > 0.8, // Random for demo
+  //     },
+  //   ]
 
-    achievements.forEach((achievement) => {
-      if (achievement.condition()) {
-        const notification: Notification = {
-          id: `achievement_${achievement.id}_${Date.now()}`,
-          type: "achievement",
-          title: achievement.title,
-          message: achievement.message,
-          timestamp: new Date(),
-          read: false,
-          priority: "high",
-          icon: "🏆",
-          color: "from-yellow-500 to-orange-500",
-        }
-        addNotification(notification)
-      }
-    })
-  }
+  //   achievements.forEach((achievement) => {
+  //     if (achievement.condition()) {
+  //       const notification: Notification = {
+  //         id: `achievement_${achievement.id}_${Date.now()}`,
+  //         type: "achievement",
+  //         title: achievement.title,
+  //         message: achievement.message,
+  //         timestamp: new Date(),
+  //         read: false,
+  //         priority: "high",
+  //         icon: "🏆",
+  //         color: "from-yellow-500 to-orange-500",
+  //       }
+  //       addNotification(notification)
+  //     }
+  //   })
+  // }
 
-  const generateRandomNotification = () => {
-    const randomNotifications = [
-      {
-        type: "offer" as const,
-        title: "New High-Paying Offer! 💎",
-        message: "A $15 survey just became available. Complete it before it expires!",
-        icon: "💎",
-        color: "from-emerald-500 to-teal-500",
-      },
-      {
-        type: "bonus" as const,
-        title: "Bonus Multiplier Active! ⚡",
-        message: "Next 3 offers give 2x points! Limited time only.",
-        icon: "⚡",
-        color: "from-yellow-500 to-orange-500",
-      },
-      {
-        type: "system" as const,
-        title: "Daily Bonus Ready! 🎁",
-        message: "Don't forget to claim your daily login bonus.",
-        icon: "🎁",
-        color: "from-purple-500 to-pink-500",
-      },
-    ]
+  // const generateRandomNotification = () => {
+  //   const randomNotifications = [
+  //     {
+  //       type: "offer" as const,
+  //       title: "New High-Paying Offer! 💎",
+  //       message: "A $15 survey just became available. Complete it before it expires!",
+  //       icon: "💎",
+  //       color: "from-emerald-500 to-teal-500",
+  //     },
+  //     {
+  //       type: "bonus" as const,
+  //       title: "Bonus Multiplier Active! ⚡",
+  //       message: "Next 3 offers give 2x points! Limited time only.",
+  //       icon: "⚡",
+  //       color: "from-yellow-500 to-orange-500",
+  //     },
+  //     {
+  //       type: "system" as const,
+  //       title: "Daily Bonus Ready! 🎁",
+  //       message: "Don't forget to claim your daily login bonus.",
+  //       icon: "🎁",
+  //       color: "from-purple-500 to-pink-500",
+  //     },
+  //   ]
 
-    const random = randomNotifications[Math.floor(Math.random() * randomNotifications.length)]
-    const notification: Notification = {
-      id: `random_${Date.now()}`,
-      ...random,
-      timestamp: new Date(),
-      read: false,
-      priority: "medium",
-    }
-    addNotification(notification)
-  }
+  //   const random = randomNotifications[Math.floor(Math.random() * randomNotifications.length)]
+  //   const notification: Notification = {
+  //     id: `random_${Date.now()}`,
+  //     ...random,
+  //     timestamp: new Date(),
+  //     read: false,
+  //     priority: "medium",
+  //   }
+  //   addNotification(notification)
+  // }
 
   const getNotificationIcon = (type: string) => {
     const icons = {
