@@ -58,7 +58,7 @@ export const OFFERWALL_PROVIDERS = {
   offertoro: {
     id: "offertoro",
     name: "OfferToro",
-    baseUrl: "https://www.offertoro.com",
+    baseUrl: "https://www.offertoro.com/api/v1",
     icon: "🐂",
   },
   bitlabs: {

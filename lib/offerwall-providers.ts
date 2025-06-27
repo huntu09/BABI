@@ -96,6 +96,7 @@ export const OFFERWALL_PROVIDERS: Record<string, OfferProvider> = {
       apiKey: process.env.OFFERTORO_API_KEY || "",
       secretKey: process.env.OFFERTORO_SECRET_KEY || "",
       appId: process.env.OFFERTORO_APP_ID || "",
+      pubId: process.env.OFFERTORO_PUB_ID || "",
     },
   },
   bitlabs: {
@@ -152,7 +153,7 @@ export abstract class OfferProviderClient {
 
   abstract fetchOffers(userId: string, options?: any): Promise<Offer[]>
   abstract verifyCompletion(transactionId: string): Promise<OfferCompletion | null>
-  abstract generateOfferUrl(offerId: string, userId: string): string
+  abstract generateOfferUrl(offerId: string, userId: string, options?: any): string
   abstract handleCallback(data: any): Promise<OfferCompletion | null>
 
   protected async makeRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
@@ -542,57 +543,119 @@ export class LootablyClient extends OfferProviderClient {
   }
 }
 
-// OfferToro Client
+// OfferToro Client - COMPLETE IMPLEMENTATION
 export class OfferToroClient extends OfferProviderClient {
-  async fetchOffers(userId: string): Promise<Offer[]> {
-    if (!this.provider.config.apiKey || !this.provider.config.appId) {
-      console.warn("OfferToro: Missing API credentials")
+  async fetchOffers(userId: string, options: any = {}): Promise<Offer[]> {
+    if (!this.provider.config.pubId || !this.provider.config.appId) {
+      console.warn("OfferToro: Missing API credentials (pubId or appId)")
       return []
     }
 
-    const endpoint = `/api/v1/offers?app_id=${this.provider.config.appId}&user_id=${userId}`
+    const params = new URLSearchParams({
+      pub_id: this.provider.config.pubId,
+      app_id: this.provider.config.appId,
+      user_id: userId,
+      ip_address: options.ipAddress || "127.0.0.1",
+      device_id: options.deviceId || `device_${userId}`,
+      format: "json",
+    })
+
+    const endpoint = `/offers?${params}`
 
     try {
+      console.log(`[OfferToro] Fetching offers for user ${userId}`)
+
       const data = await this.makeRequest(endpoint, {
         headers: {
-          "X-API-Key": this.provider.config.apiKey,
+          "User-Agent": "OfferToro-Client/1.0",
+          Accept: "application/json",
         },
       })
 
-      return (
-        data.offers?.map((offer: any) => ({
+      if (!data.success || !data.offers) {
+        console.warn("OfferToro: No offers returned or API error", data)
+        return []
+      }
+
+      console.log(`[OfferToro] Retrieved ${data.offers.length} offers`)
+
+      return data.offers
+        .map((offer: any) => ({
           id: `offertoro_${offer.offer_id}`,
           providerId: "offertoro",
-          title: offer.offer_name || "OfferToro Offer",
-          description: offer.offer_desc || "Complete this offer to earn points",
-          points: Math.floor((offer.amount || 0.6) * 100),
-          payout: offer.amount || 0.6,
-          category: offer.category || "general",
-          difficulty: "medium",
-          estimatedTime: `${offer.time || 20} minutes`,
-          requirements: offer.requirements?.split(",") || [],
-          countries: offer.countries?.split(",") || ["US"],
-          devices: offer.device?.split(",") || ["mobile", "desktop"],
-          url: offer.link || "#",
-          imageUrl: offer.image,
-          rating: offer.rating || 4.0,
-          isActive: offer.is_active !== false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })) || []
-      )
+          title: offer.offer_name || offer.title || "OfferToro Offer",
+          description: offer.offer_desc || offer.description || "Complete this offer to earn points",
+          points: Math.floor((offer.amount || 0.6) * 200), // Convert USD to points (200 points = $1)
+          payout: Number.parseFloat(offer.amount || "0.6"),
+          category: this.normalizeCategory(offer.category),
+          difficulty: this.mapDifficulty(offer.difficulty || offer.rating),
+          estimatedTime: `${offer.time_to_complete || offer.time || 20} minutes`,
+          requirements: this.parseRequirements(offer.requirements),
+          countries: this.parseCountries(offer.countries),
+          devices: this.parseDevices(offer.devices),
+          url: offer.link || offer.click_url || "#",
+          imageUrl: offer.image_url || offer.icon,
+          rating: Number.parseFloat(offer.rating || "4.0"),
+          completions: Number.parseInt(offer.completions || "0"),
+          isActive: offer.is_active !== false && offer.status !== "inactive",
+          expiresAt: offer.expires_at ? new Date(offer.expires_at) : undefined,
+          createdAt: new Date(offer.created_at || Date.now()),
+          updatedAt: new Date(offer.updated_at || Date.now()),
+        }))
+        .filter((offer) => offer.isActive && offer.payout > 0)
     } catch (error) {
       console.error("OfferToro API Error:", error)
       return []
     }
   }
 
-  generateOfferUrl(offerId: string, userId: string): string {
-    return `${this.baseUrl}/click?app_id=${this.provider.config.appId}&user_id=${userId}&offer_id=${offerId.replace("offertoro_", "")}`
+  generateOfferUrl(offerId: string, userId: string, options: any = {}): string {
+    const offerToroOfferId = offerId.replace("offertoro_", "")
+    const params = new URLSearchParams({
+      pub_id: this.provider.config.pubId,
+      app_id: this.provider.config.appId,
+      user_id: userId,
+      offer_id: offerToroOfferId,
+      ip_address: options.ipAddress || "127.0.0.1",
+      device_id: options.deviceId || `device_${userId}`,
+      click_id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    })
+
+    return `${this.baseUrl}/click?${params}`
   }
 
   async verifyCompletion(transactionId: string): Promise<OfferCompletion | null> {
-    return null
+    if (!this.provider.config.pubId || !this.provider.config.appId) {
+      return null
+    }
+
+    const params = new URLSearchParams({
+      pub_id: this.provider.config.pubId,
+      app_id: this.provider.config.appId,
+      transaction_id: transactionId,
+    })
+
+    try {
+      const data = await this.makeRequest(`/verify?${params}`)
+
+      if (data.completion) {
+        return {
+          offerId: `offertoro_${data.completion.offer_id}`,
+          userId: data.completion.user_id,
+          providerId: "offertoro",
+          transactionId: data.completion.transaction_id,
+          points: Math.floor(data.completion.amount * 200),
+          payout: Number.parseFloat(data.completion.amount),
+          status: this.mapStatus(data.completion.status),
+          completedAt: new Date(data.completion.completed_at),
+          verifiedAt: new Date(),
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("OfferToro verification error:", error)
+      return null
+    }
   }
 
   async handleCallback(data: any): Promise<OfferCompletion | null> {
@@ -600,24 +663,113 @@ export class OfferToroClient extends OfferProviderClient {
       throw new Error("OfferToro: Missing secret key for callback verification")
     }
 
-    const expectedSignature = this.generateSignature(
-      `${data.user_id}${data.offer_id}${data.amount}`,
-      this.provider.config.secretKey,
-    )
+    console.log("[OfferToro] Processing callback:", data)
 
-    if (data.signature && data.signature !== expectedSignature) {
-      throw new Error("Invalid callback signature")
+    // Validate required parameters
+    const requiredParams = ["oid", "uid", "amount", "sig"]
+    for (const param of requiredParams) {
+      if (!data[param]) {
+        throw new Error(`OfferToro: Missing required parameter: ${param}`)
+      }
+    }
+
+    // Validate signature
+    const signatureString = `${data.oid}${data.uid}${data.amount}${this.provider.config.secretKey}`
+    const expectedSignature = this.generateSignature(signatureString, this.provider.config.secretKey)
+
+    if (data.sig !== expectedSignature) {
+      throw new Error("OfferToro: Invalid callback signature")
+    }
+
+    const amount = Number.parseFloat(data.amount)
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error("OfferToro: Invalid amount")
     }
 
     return {
-      offerId: `offertoro_${data.offer_id}`,
-      userId: data.user_id,
+      offerId: `offertoro_${data.oid}`,
+      userId: data.uid,
       providerId: "offertoro",
-      transactionId: data.transaction_id || `offertoro_${Date.now()}`,
-      points: Math.floor((data.amount || 0.6) * 100),
-      payout: data.amount || 0.6,
-      status: data.status || "completed",
-      completedAt: new Date(),
+      transactionId: data.transaction_id || `offertoro_${Date.now()}_${data.oid}`,
+      points: Math.floor(amount * 200), // Convert USD to points
+      payout: amount,
+      status: "completed",
+      completedAt: new Date(data.timestamp ? Number.parseInt(data.timestamp) * 1000 : Date.now()),
+      ipAddress: data.ip,
+      userAgent: data.user_agent,
+    }
+  }
+
+  // Helper methods
+  private normalizeCategory(category: string): string {
+    const categoryMap: Record<string, string> = {
+      "mobile app": "mobile_app",
+      app: "mobile_app",
+      game: "gaming",
+      survey: "survey",
+      video: "video",
+      signup: "registration",
+      shopping: "ecommerce",
+      trial: "free_trial",
+      download: "download",
+    }
+    return categoryMap[category?.toLowerCase()] || "general"
+  }
+
+  private mapDifficulty(rating: number | string): string {
+    const numRating = typeof rating === "string" ? Number.parseFloat(rating) : rating
+    if (numRating >= 4.0) return "easy"
+    if (numRating >= 3.0) return "medium"
+    return "hard"
+  }
+
+  private parseRequirements(requirements: string | string[]): string[] {
+    if (Array.isArray(requirements)) return requirements
+    if (typeof requirements === "string") {
+      return requirements
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
+  private parseCountries(countries: string | string[]): string[] {
+    if (Array.isArray(countries)) return countries
+    if (typeof countries === "string") {
+      return countries
+        .split(",")
+        .map((c) => c.trim().toUpperCase())
+        .filter(Boolean)
+    }
+    return ["US", "GB", "CA", "AU"]
+  }
+
+  private parseDevices(devices: string | string[]): string[] {
+    if (Array.isArray(devices)) return devices
+    if (typeof devices === "string") {
+      return devices
+        .split(",")
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean)
+    }
+    return ["mobile", "desktop"]
+  }
+
+  private mapStatus(status: string | number): "completed" | "rejected" | "chargeback" {
+    if (status === "completed" || status === "1" || status === 1) return "completed"
+    if (status === "chargeback" || status === "-1" || status === -1) return "chargeback"
+    return "rejected"
+  }
+
+  protected generateSignature(data: string, secret: string): string {
+    try {
+      const crypto = require("crypto")
+      return crypto.createHash("sha1").update(data).digest("hex")
+    } catch (error) {
+      console.error("Crypto not available:", error)
+      // Fallback for client-side
+      return btoa(data + secret)
     }
   }
 }
@@ -969,7 +1121,7 @@ export class OfferProviderFactory {
       case "lootably":
         return !!(provider.config.apiKey && provider.config.placementId)
       case "offertoro":
-        return !!(provider.config.apiKey && provider.config.appId)
+        return !!(provider.config.apiKey && provider.config.appId && provider.config.pubId)
       case "bitlabs":
         return !!(provider.config.apiKey && provider.config.appToken)
       case "ayetstudios":
